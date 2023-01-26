@@ -21,14 +21,12 @@ type data struct {
 	SiteTitle  string
 	Year       string
 	Author     string
-	Pagematter pagematter
+	Pagematter struct {
+		PageTitle string
+	}
 }
 
-type pagematter struct {
-	PageTitle string
-}
-
-var matter pagematter
+var matter = data{}.Pagematter
 
 // get files in directory
 func getFilesFromDirectory(path string) []fs.DirEntry {
