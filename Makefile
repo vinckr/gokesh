@@ -4,6 +4,7 @@ help:  # show all available Make commands
 test: # test building HTML files
 	echo "Building HTML files"
 	go run cmd/build/main.go page index
+	go run cmd/build/main.go dir blog
 
 dev: # run a local server to preview the site
 	make test

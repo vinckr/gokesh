@@ -2,4 +2,8 @@
 pagetitle: "Gokesh Static Site Builder"
 ---
 
-test
+# blog
+
+- [markdown](markdown.html)
+- [lorem](lorem.html)
+- [ipsum](ipsum.html)
