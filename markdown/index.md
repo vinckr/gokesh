@@ -2,7 +2,7 @@
 pagetitle: "Gokesh Static Site Builder"
 ---
 
-# blog
+# Blog
 
 - [markdown](markdown.html)
 - [lorem](lorem.html)

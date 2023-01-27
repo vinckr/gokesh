@@ -29,7 +29,7 @@ type data struct {
 var matter = data{}.Pagematter
 
 // get files in directory
-func getFilesFromDirectory(path string) []fs.DirEntry {
+func GetFilesFromDirectory(path string) []fs.DirEntry {
 	files, readDirErr := os.ReadDir(path)
 	if readDirErr != nil {
 		log.Fatalf("Error getting files: %s", readDirErr)
@@ -38,7 +38,7 @@ func getFilesFromDirectory(path string) []fs.DirEntry {
 }
 
 // read markdown file from directory
-func readMarkdownFileFromDirectory(path string, filename string) []byte {
+func ReadMarkdownFileFromDirectory(path string, filename string) []byte {
 	md, readErr := os.ReadFile(path + filename)
 	if readErr != nil {
 		log.Fatalf("Error reading markdown file: %s", readErr)
@@ -47,7 +47,7 @@ func readMarkdownFileFromDirectory(path string, filename string) []byte {
 }
 
 // split body and frontmatter
-func splitBodyAndFrontmatter(md []byte) []byte {
+func SplitBodyAndFrontmatter(md []byte) []byte {
 	bodyOnly, err := frontmatter.Parse(strings.NewReader(string(md)), &matter)
 	if err != nil {
 		log.Fatalf("Error parsing frontmatter: %s", err)
@@ -56,7 +56,7 @@ func splitBodyAndFrontmatter(md []byte) []byte {
 }
 
 // insert body in template
-func buildTemplate(data data, templates ...string) string {
+func BuildTemplate(data data, templates ...string) string {
 	var t = template.Must(template.ParseFiles(templates...))
 	build := new(strings.Builder)
 	templateErr := t.ExecuteTemplate(build, "Page", data)
@@ -67,7 +67,7 @@ func buildTemplate(data data, templates ...string) string {
 }
 
 // write html file
-func writeHTMLFile(fileName string, outpath string, page string) {
+func WriteHTMLFile(fileName string, outpath string, page string) {
 	outPath := outpath + strings.TrimSuffix(fileName, ".md") + ".html"
 	writeErr := os.WriteFile(outPath, []byte(page), 0644)
 	if writeErr != nil {
@@ -76,15 +76,15 @@ func writeHTMLFile(fileName string, outpath string, page string) {
 	fmt.Printf("\n" + fileName + " written to " + outPath + "\n" + "------------------------")
 }
 
-func buildPage(fileName string, dir string, outpath string, templates ...string) {
+func BuildPage(fileName string, dir string, outpath string, templates ...string) {
 
 	// global config
 	author := os.Getenv("AUTHOR")
 	sitetitle := os.Getenv("SITETITLE")
 	currentyear := time.Now().Format("2006")
 	// get markdown body
-	md := readMarkdownFileFromDirectory(dir, fileName)
-	bodyOnly := splitBodyAndFrontmatter(md)
+	md := ReadMarkdownFileFromDirectory(dir, fileName)
+	bodyOnly := SplitBodyAndFrontmatter(md)
 	// convert markdown to html body
 	extensions := parser.CommonExtensions | parser.Footnotes
 	parser := parser.NewWithExtensions(extensions)
@@ -93,17 +93,17 @@ func buildPage(fileName string, dir string, outpath string, templates ...string)
 	page := data{string(body), sitetitle, currentyear, author, matter}
 	fmt.Printf("\nBuilding page %s:", page.Pagematter.PageTitle)
 	// build page with template and write to file
-	build := buildTemplate(page, templates...)
-	writeHTMLFile(fileName, outpath, build)
+	build := BuildTemplate(page, templates...)
+	WriteHTMLFile(fileName, outpath, build)
 }
 
-func buildPages(dir string, outpath string, templates ...string) {
+func BuildPages(dir string, outpath string, templates ...string) {
 
-	files := getFilesFromDirectory(dir)
+	files := GetFilesFromDirectory(dir)
 	// build pages from files in directory
 	for _, file := range files {
 		fileName := file.Name()
-		buildPage(fileName, dir, outpath, templates...)
+		BuildPage(fileName, dir, outpath, templates...)
 	}
 }
 
@@ -119,9 +119,9 @@ func main() {
 	outputPath := "./public/"
 
 	if inputType == "page" {
-		buildPage(inputPath+".md", "./markdown/", outputPath, "./templates/page.tmpl", "./templates/header.tmpl", "./templates/footer.tmpl", "./templates/body.tmpl")
+		BuildPage(inputPath+".md", "./markdown/", outputPath, "./templates/page.tmpl", "./templates/header.tmpl", "./templates/footer.tmpl", "./templates/body.tmpl")
 	} else if inputType == "dir" {
-		buildPages(inputPath, outputPath, "./templates/page.tmpl", "./templates/header.tmpl", "./templates/footer.tmpl", "./templates/body.tmpl")
+		BuildPages("markdown/"+inputPath+"/", outputPath, "./templates/page.tmpl", "./templates/header.tmpl", "./templates/footer.tmpl", "./templates/body.tmpl")
 	} else {
 		fmt.Println("Invalid input type. Use 'page' or 'dir'.")
 	}
