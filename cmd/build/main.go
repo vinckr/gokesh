@@ -68,10 +68,14 @@ func WriteHTMLFile(fileName string, outpath string, page string) {
 }
 
 func BuildPage(fileName string, dir string, outpath string, templates ...string) {
+	BuildPageAt(fileName, dir, outpath, time.Now(), templates...)
+}
+
+func BuildPageAt(fileName string, dir string, outpath string, now time.Time, templates ...string) {
 	// Global config from environment
 	author := os.Getenv("AUTHOR")
 	sitetitle := os.Getenv("SITETITLE")
-	currentYear := time.Now().Format("2006")
+	currentYear := now.Format("2006")
 
 	// Read and parse markdown
 	md := ReadMarkdownFileFromDirectory(dir, fileName)
