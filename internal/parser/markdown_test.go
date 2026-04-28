@@ -149,6 +149,31 @@ func TestToHTML(t *testing.T) {
 			input:    "This is a paragraph.",
 			contains: []string{"<p>This is a paragraph.</p>"},
 		},
+		// Horizontal rule
+		{
+			name:     "horizontal rule ---",
+			input:    "---",
+			contains: []string{"<hr>"},
+			absent:   []string{"<p>"},
+		},
+		{
+			name:     "horizontal rule ***",
+			input:    "***",
+			contains: []string{"<hr>"},
+		},
+		// Inline code protects content from other inline processing
+		{
+			name:     "inline code protects bold syntax",
+			input:    "`**not bold**`",
+			contains: []string{"<code>**not bold**</code>"},
+			absent:   []string{"<strong>"},
+		},
+		{
+			name:     "inline code protects strikethrough syntax",
+			input:    "`~~not struck~~`",
+			contains: []string{"<code>~~not struck~~</code>"},
+			absent:   []string{"<del>"},
+		},
 		// Paragraph wraps multiple consecutive lines
 		{
 			name:     "multi-line paragraph",

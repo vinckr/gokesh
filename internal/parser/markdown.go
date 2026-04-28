@@ -140,6 +140,13 @@ func ToHTML(src []byte) []byte {
 			continue
 		}
 
+		// Thematic break (horizontal rule)
+		if line == "---" || line == "***" || line == "___" {
+			flush()
+			out.WriteString("<hr>\n")
+			continue
+		}
+
 		// Table row
 		if strings.HasPrefix(line, "|") {
 			// Skip separator rows (e.g. | --- | --- |)
@@ -253,17 +260,38 @@ var (
 )
 
 // inlineHTML applies inline Markdown transformations to a string.
+// Inline code spans are extracted first and protected from further processing.
 func inlineHTML(s string) string {
+	// Extract inline code spans into placeholders so their content is
+	// not affected by subsequent bold/italic/strikethrough processing.
+	var codeSpans []string
+	s = reInlineCode.ReplaceAllStringFunc(s, func(match string) string {
+		inner := match[1 : len(match)-1] // strip surrounding backticks
+		idx := len(codeSpans)
+		codeSpans = append(codeSpans, "<code>"+inner+"</code>")
+		return codeKey(idx)
+	})
+
 	s = reImage.ReplaceAllString(s, `<img src="$2" alt="$1">`)
 	s = reLink.ReplaceAllString(s, `<a href="$2">$1</a>`)
-	s = reInlineCode.ReplaceAllString(s, `<code>$1</code>`)
 	s = reBoldItalic1.ReplaceAllString(s, `<strong><em>$1</em></strong>`)
 	s = reBoldItalic2.ReplaceAllString(s, `<strong><em>$1</em></strong>`)
 	s = reBold.ReplaceAllString(s, `<strong>$1</strong>`)
 	s = reItalicUScore.ReplaceAllString(s, `<em>$1</em>`)
 	s = reItalicStar.ReplaceAllString(s, `<em>$1</em>`)
 	s = reStrike.ReplaceAllString(s, `<del>$1</del>`)
+
+	// Restore code spans
+	for i, span := range codeSpans {
+		s = strings.ReplaceAll(s, codeKey(i), span)
+	}
 	return s
+}
+
+// codeKey returns a unique placeholder string for the i-th code span.
+// Uses non-printable ASCII control chars that cannot appear in Markdown source.
+func codeKey(i int) string {
+	return "\x02" + string(rune(i+1)) + "\x03"
 }
 
 // escapeHTML escapes characters that are significant in HTML.
