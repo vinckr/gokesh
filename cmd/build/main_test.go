@@ -8,6 +8,8 @@ import (
 )
 
 func TestSplitBodyAndFrontmatter(t *testing.T) {
+	t.Parallel()
+
 	md := []byte("---\npagetitle: \"Test Page\"\n---\n# Hello\n\nWorld")
 	body, matter := SplitBodyAndFrontmatter(md)
 
@@ -20,8 +22,12 @@ func TestSplitBodyAndFrontmatter(t *testing.T) {
 }
 
 func TestWriteHTMLFile(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
-	WriteHTMLFile("test.md", dir+string(filepath.Separator), "<html>hello</html>")
+	if err := WriteHTMLFile("test.md", dir+string(filepath.Separator), "<html>hello</html>"); err != nil {
+		t.Fatalf("WriteHTMLFile: %v", err)
+	}
 
 	outPath := filepath.Join(dir, "test.html")
 	content, err := os.ReadFile(outPath)
@@ -34,7 +40,8 @@ func TestWriteHTMLFile(t *testing.T) {
 }
 
 func TestBuildTemplate(t *testing.T) {
-	// Write minimal templates to a temp dir
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	pageTmpl := `{{define "Page"}}{{template "Body" .}}{{end}}`
@@ -44,7 +51,10 @@ func TestBuildTemplate(t *testing.T) {
 
 	var d data
 	d.Body = "<p>hello</p>"
-	result := BuildTemplate(d, filepath.Join(dir, "page.tmpl"), filepath.Join(dir, "body.tmpl"))
+	result, err := BuildTemplate(d, filepath.Join(dir, "page.tmpl"), filepath.Join(dir, "body.tmpl"))
+	if err != nil {
+		t.Fatalf("BuildTemplate: %v", err)
+	}
 
 	if !strings.Contains(result, "<article><p>hello</p></article>") {
 		t.Errorf("unexpected template output: %s", result)

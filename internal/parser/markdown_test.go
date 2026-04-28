@@ -6,6 +6,8 @@ import (
 )
 
 func TestToHTML(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -204,6 +206,7 @@ func TestToHTML(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := string(ToHTML([]byte(tt.input)))
 			for _, want := range tt.contains {
 				if !strings.Contains(got, want) {

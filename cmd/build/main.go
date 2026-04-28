@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"text/template"
@@ -25,21 +25,21 @@ type data struct {
 }
 
 // GetFilesFromDirectory returns all directory entries at path.
-func GetFilesFromDirectory(path string) []fs.DirEntry {
+func GetFilesFromDirectory(path string) ([]fs.DirEntry, error) {
 	files, err := os.ReadDir(path)
 	if err != nil {
-		log.Fatalf("Error getting files: %s", err)
+		return nil, fmt.Errorf("reading directory %s: %w", path, err)
 	}
-	return files
+	return files, nil
 }
 
 // ReadMarkdownFileFromDirectory reads a markdown file from a directory.
-func ReadMarkdownFileFromDirectory(path string, filename string) []byte {
+func ReadMarkdownFileFromDirectory(path string, filename string) ([]byte, error) {
 	md, err := os.ReadFile(path + filename)
 	if err != nil {
-		log.Fatalf("Error reading markdown file: %s", err)
+		return nil, fmt.Errorf("reading %s%s: %w", path, filename, err)
 	}
-	return md
+	return md, nil
 }
 
 // SplitBodyAndFrontmatter extracts frontmatter and returns only the body.
@@ -49,63 +49,67 @@ func SplitBodyAndFrontmatter(md []byte) ([]byte, map[string]string) {
 }
 
 // BuildTemplate renders the named "Page" template with data and returns HTML.
-func BuildTemplate(d data, templates ...string) string {
-	t := template.Must(template.ParseFiles(templates...))
+func BuildTemplate(d data, templates ...string) (string, error) {
+	t, err := template.ParseFiles(templates...)
+	if err != nil {
+		return "", fmt.Errorf("parsing templates: %w", err)
+	}
 	build := new(strings.Builder)
 	if err := t.ExecuteTemplate(build, "Page", d); err != nil {
-		log.Fatalf("Error building the template: %s", err)
+		return "", fmt.Errorf("executing template: %w", err)
 	}
-	return build.String()
+	return build.String(), nil
 }
 
 // WriteHTMLFile writes the rendered page HTML to disk.
-func WriteHTMLFile(fileName string, outpath string, page string) {
+func WriteHTMLFile(fileName string, outpath string, page string) error {
 	outPath := outpath + strings.TrimSuffix(fileName, ".md") + ".html"
 	if err := os.WriteFile(outPath, []byte(page), 0644); err != nil {
-		log.Fatalf("Error writing file: %s", err)
+		return fmt.Errorf("writing %s: %w", outPath, err)
 	}
-	fmt.Printf("\n%s written to %s\n------------------------", fileName, outPath)
+	slog.Info("file written", "file", outPath)
+	return nil
 }
 
-func BuildPage(fileName string, dir string, outpath string, templates ...string) {
-	BuildPageAt(fileName, dir, outpath, time.Now(), templates...)
+func BuildPage(fileName string, dir string, outpath string, templates ...string) error {
+	return BuildPageAt(fileName, dir, outpath, time.Now(), templates...)
 }
 
-func BuildPageAt(fileName string, dir string, outpath string, now time.Time, templates ...string) {
-	// Global config from environment
+func BuildPageAt(fileName string, dir string, outpath string, now time.Time, templates ...string) error {
 	author := os.Getenv("AUTHOR")
 	sitetitle := os.Getenv("SITETITLE")
 	currentYear := now.Format("2006")
 
-	// Read and parse markdown
-	md := ReadMarkdownFileFromDirectory(dir, fileName)
+	md, err := ReadMarkdownFileFromDirectory(dir, fileName)
+	if err != nil {
+		return err
+	}
 	body, matter := SplitBodyAndFrontmatter(md)
 
-	// Convert markdown body to HTML
-	htmlBody := parser.ToHTML(body)
-
-	// Assemble page data
 	var d data
-	d.Body = string(htmlBody)
+	d.Body = string(parser.ToHTML(body))
 	d.SiteTitle = sitetitle
 	d.Year = currentYear
 	d.Author = author
 	d.Pagematter.PageTitle = matter["pagetitle"]
 
-	fmt.Printf("\nBuilding page %s:", d.Pagematter.PageTitle)
-	build := BuildTemplate(d, templates...)
-	WriteHTMLFile(fileName, outpath, build)
+	slog.Info("building page", "title", d.Pagematter.PageTitle)
+	build, err := BuildTemplate(d, templates...)
+	if err != nil {
+		return err
+	}
+	return WriteHTMLFile(fileName, outpath, build)
 }
 
 // CopyStyles copies all files from stylesDir into outpath.
-// This makes styles/ the single source of truth for CSS — edit there, rebuild, done.
-func CopyStyles(stylesDir string, outpath string) {
+// styles/ is the single source of truth for CSS — edit there, rebuild, done.
+func CopyStyles(stylesDir string, outpath string) error {
 	entries, err := os.ReadDir(stylesDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return // no styles/ dir is fine
+			return nil
 		}
-		log.Fatalf("Error reading styles directory: %s", err)
+		return fmt.Errorf("reading styles directory: %w", err)
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -113,34 +117,44 @@ func CopyStyles(stylesDir string, outpath string) {
 		}
 		src := stylesDir + entry.Name()
 		dst := outpath + entry.Name()
-		copyFile(src, dst)
-		fmt.Printf("\nstyles/%s copied to %s", entry.Name(), dst)
+		if err := copyFile(src, dst); err != nil {
+			return err
+		}
+		slog.Info("style copied", "src", src, "dst", dst)
 	}
+	return nil
 }
 
-func copyFile(src, dst string) {
+func copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
-		log.Fatalf("Error opening %s: %s", src, err)
+		return fmt.Errorf("opening %s: %w", src, err)
 	}
 	defer in.Close()
 
 	out, err := os.Create(dst)
 	if err != nil {
-		log.Fatalf("Error creating %s: %s", dst, err)
+		return fmt.Errorf("creating %s: %w", dst, err)
 	}
 	defer out.Close()
 
 	if _, err = io.Copy(out, in); err != nil {
-		log.Fatalf("Error copying %s to %s: %s", src, dst, err)
+		return fmt.Errorf("copying %s to %s: %w", src, dst, err)
 	}
+	return nil
 }
 
-func BuildPages(dir string, outpath string, templates ...string) {
-	files := GetFilesFromDirectory(dir)
-	for _, file := range files {
-		BuildPage(file.Name(), dir, outpath, templates...)
+func BuildPages(dir string, outpath string, templates ...string) error {
+	files, err := GetFilesFromDirectory(dir)
+	if err != nil {
+		return err
 	}
+	for _, file := range files {
+		if err := BuildPage(file.Name(), dir, outpath, templates...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func main() {
@@ -153,8 +167,6 @@ func main() {
 	inputPath := os.Args[2]
 	outputPath := "./public/"
 
-	CopyStyles("./styles/", outputPath)
-
 	tmpl := []string{
 		"./templates/page.tmpl",
 		"./templates/header.tmpl",
@@ -162,12 +174,23 @@ func main() {
 		"./templates/body.tmpl",
 	}
 
+	if err := CopyStyles("./styles/", outputPath); err != nil {
+		slog.Error("failed to copy styles", "error", err)
+		os.Exit(1)
+	}
+
+	var err error
 	switch inputType {
 	case "page":
-		BuildPage(inputPath+".md", "./markdown/", outputPath, tmpl...)
+		err = BuildPage(inputPath+".md", "./markdown/", outputPath, tmpl...)
 	case "dir":
-		BuildPages("markdown/"+inputPath+"/", outputPath, tmpl...)
+		err = BuildPages("markdown/"+inputPath+"/", outputPath, tmpl...)
 	default:
 		fmt.Println("Invalid input type. Use 'page' or 'dir'.")
+		return
+	}
+	if err != nil {
+		slog.Error("build failed", "error", err)
+		os.Exit(1)
 	}
 }
