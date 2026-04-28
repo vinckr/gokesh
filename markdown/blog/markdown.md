@@ -11,10 +11,15 @@ This page demonstrates every Markdown feature supported by Gokesh's in-house par
 ## Headings
 
 # Heading 1
+
 ## Heading 2
+
 ### Heading 3
+
 #### Heading 4
+
 ##### Heading 5
+
 ###### Heading 6
 
 ---
@@ -96,21 +101,48 @@ Page content starts here.
 
 ## Tables
 
-| Feature           | Implemented | Notes                        |
-| ----------------- | ----------- | ---------------------------- |
-| Headings          | yes         | h1 through h6                |
-| Bold / Italic     | yes         | `**` and `_` syntax          |
-| Strikethrough     | yes         | `~~text~~`                   |
-| Inline code       | yes         | backtick syntax              |
-| Links             | yes         | `[text](url)`                |
-| Images            | yes         | `![alt](url)`                |
-| Blockquotes       | yes         | `> text`                     |
-| Unordered lists   | yes         | `-` or `*` prefix            |
-| Ordered lists     | yes         | `1.` prefix                  |
-| Fenced code       | yes         | triple backtick fence        |
-| Tables            | yes         | pipe syntax with header row  |
-| Footnotes         | no          | planned for 1.0              |
-| Task lists        | no          | planned for 1.0              |
+| Feature         | Implemented | Notes                       |
+| --------------- | ----------- | --------------------------- |
+| Headings        | yes         | h1 through h6               |
+| Bold / Italic   | yes         | `**` and `_` syntax         |
+| Strikethrough   | yes         | `~~text~~`                  |
+| Inline code     | yes         | backtick syntax             |
+| Links           | yes         | `[text](url)`               |
+| Images          | yes         | `![alt](url)`               |
+| Blockquotes     | yes         | `> text`                    |
+| Unordered lists | yes         | `-` or `*` prefix           |
+| Ordered lists   | yes         | `1.` prefix                 |
+| Fenced code     | yes         | triple backtick fence       |
+| Tables          | yes         | pipe syntax with header row |
+| Footnotes       | no          | planned for 1.0             |
+| Task lists      | no          | planned for 1.0             |
+
+---
+
+## HTML Code
+
+HTML inside a fenced code block is escaped and displayed as literal text — angle brackets and all:
+
+```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Page</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <article>
+        <h1>Hello World</h1>
+        <p>This is a <strong>paragraph</strong> with <a href="https://example.com">a link</a>.</p>
+    </article>
+</body>
+</html>
+```
+
+Inline HTML tags in a code span are also escaped: `<div class="wrapper">`, `<img src="photo.jpg" alt="">`, `<!-- comment -->`.
+
+Raw HTML written directly in a paragraph passes through to the output as-is — useful for one-off elements the parser does not handle: <kbd>Ctrl</kbd> + <kbd>S</kbd>.
 
 ---
 

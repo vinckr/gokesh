@@ -174,6 +174,17 @@ func TestToHTML(t *testing.T) {
 			contains: []string{"<code>~~not struck~~</code>"},
 			absent:   []string{"<del>"},
 		},
+		{
+			name:     "inline code escapes HTML angle brackets",
+			input:    "`<div class=\"foo\">`",
+			contains: []string{`<code>&lt;div class="foo"&gt;</code>`},
+			absent:   []string{"<div "},
+		},
+		{
+			name:     "inline code escapes HTML comment",
+			input:    "`<!-- comment -->`",
+			contains: []string{"<code>&lt;!-- comment --&gt;</code>"},
+		},
 		// Paragraph wraps multiple consecutive lines
 		{
 			name:     "multi-line paragraph",

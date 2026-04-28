@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"os"
@@ -92,6 +93,45 @@ func BuildPage(fileName string, dir string, outpath string, templates ...string)
 	WriteHTMLFile(fileName, outpath, build)
 }
 
+// CopyStyles copies all files from stylesDir into outpath.
+// This makes styles/ the single source of truth for CSS — edit there, rebuild, done.
+func CopyStyles(stylesDir string, outpath string) {
+	entries, err := os.ReadDir(stylesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return // no styles/ dir is fine
+		}
+		log.Fatalf("Error reading styles directory: %s", err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		src := stylesDir + entry.Name()
+		dst := outpath + entry.Name()
+		copyFile(src, dst)
+		fmt.Printf("\nstyles/%s copied to %s", entry.Name(), dst)
+	}
+}
+
+func copyFile(src, dst string) {
+	in, err := os.Open(src)
+	if err != nil {
+		log.Fatalf("Error opening %s: %s", src, err)
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		log.Fatalf("Error creating %s: %s", dst, err)
+	}
+	defer out.Close()
+
+	if _, err = io.Copy(out, in); err != nil {
+		log.Fatalf("Error copying %s to %s: %s", src, dst, err)
+	}
+}
+
 func BuildPages(dir string, outpath string, templates ...string) {
 	files := GetFilesFromDirectory(dir)
 	for _, file := range files {
@@ -108,6 +148,8 @@ func main() {
 	inputType := os.Args[1]
 	inputPath := os.Args[2]
 	outputPath := "./public/"
+
+	CopyStyles("./styles/", outputPath)
 
 	tmpl := []string{
 		"./templates/page.tmpl",

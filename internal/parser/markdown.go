@@ -268,7 +268,7 @@ func inlineHTML(s string) string {
 	s = reInlineCode.ReplaceAllStringFunc(s, func(match string) string {
 		inner := match[1 : len(match)-1] // strip surrounding backticks
 		idx := len(codeSpans)
-		codeSpans = append(codeSpans, "<code>"+inner+"</code>")
+		codeSpans = append(codeSpans, "<code>"+escapeHTML(inner)+"</code>")
 		return codeKey(idx)
 	})
 
