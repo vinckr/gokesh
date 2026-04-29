@@ -1,4 +1,4 @@
-package main
+package build
 
 import (
 	"flag"
@@ -64,7 +64,7 @@ func TestGoldenBuild(t *testing.T) {
 
 			golden, err := os.ReadFile(goldenPath)
 			if err != nil {
-				t.Fatalf("golden file missing for %s — run: go test ./cmd/build/ -update\nerr: %v", path, err)
+				t.Fatalf("golden file missing for %s — run: go test ./internal/build/ -update\nerr: %v", path, err)
 			}
 
 			if string(actual) != string(golden) {

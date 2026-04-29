@@ -1,4 +1,4 @@
-package main
+package build
 
 import (
 	"fmt"
@@ -13,8 +13,8 @@ import (
 	"github.com/vinckr/gokesh/internal/parser"
 )
 
-// data holds the full context passed to page templates.
-type data struct {
+// pageData holds the full context passed to page templates.
+type pageData struct {
 	Body       string
 	SiteTitle  string
 	Year       string
@@ -49,7 +49,7 @@ func SplitBodyAndFrontmatter(md []byte) ([]byte, map[string]string) {
 }
 
 // BuildTemplate renders the named "Page" template with data and returns HTML.
-func BuildTemplate(d data, templates ...string) (string, error) {
+func BuildTemplate(d pageData, templates ...string) (string, error) {
 	t, err := template.ParseFiles(templates...)
 	if err != nil {
 		return "", fmt.Errorf("parsing templates: %w", err)
@@ -86,7 +86,7 @@ func BuildPageAt(fileName string, dir string, outpath string, now time.Time, tem
 	}
 	body, matter := SplitBodyAndFrontmatter(md)
 
-	var d data
+	var d pageData
 	d.Body = string(parser.ToHTML(body))
 	d.SiteTitle = sitetitle
 	d.Year = currentYear
@@ -94,15 +94,14 @@ func BuildPageAt(fileName string, dir string, outpath string, now time.Time, tem
 	d.Pagematter.PageTitle = matter["pagetitle"]
 
 	slog.Info("building page", "title", d.Pagematter.PageTitle)
-	build, err := BuildTemplate(d, templates...)
+	html, err := BuildTemplate(d, templates...)
 	if err != nil {
 		return err
 	}
-	return WriteHTMLFile(fileName, outpath, build)
+	return WriteHTMLFile(fileName, outpath, html)
 }
 
 // CopyStyles copies all files from stylesDir into outpath.
-// styles/ is the single source of truth for CSS — edit there, rebuild, done.
 func CopyStyles(stylesDir string, outpath string) error {
 	entries, err := os.ReadDir(stylesDir)
 	if err != nil {
@@ -155,42 +154,4 @@ func BuildPages(dir string, outpath string, templates ...string) error {
 		}
 	}
 	return nil
-}
-
-func main() {
-	if len(os.Args) < 3 {
-		fmt.Println("Usage: go run main.go <input_type> <input_path> [output_path]")
-		fmt.Println("input_type: 'page' for single page or 'dir' for directory")
-		return
-	}
-	inputType := os.Args[1]
-	inputPath := os.Args[2]
-	outputPath := "./public/"
-
-	tmpl := []string{
-		"./templates/page.tmpl",
-		"./templates/header.tmpl",
-		"./templates/footer.tmpl",
-		"./templates/body.tmpl",
-	}
-
-	if err := CopyStyles("./styles/", outputPath); err != nil {
-		slog.Error("failed to copy styles", "error", err)
-		os.Exit(1)
-	}
-
-	var err error
-	switch inputType {
-	case "page":
-		err = BuildPage(inputPath+".md", "./markdown/", outputPath, tmpl...)
-	case "dir":
-		err = BuildPages("markdown/"+inputPath+"/", outputPath, tmpl...)
-	default:
-		fmt.Println("Invalid input type. Use 'page' or 'dir'.")
-		return
-	}
-	if err != nil {
-		slog.Error("build failed", "error", err)
-		os.Exit(1)
-	}
 }

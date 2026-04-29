@@ -20,11 +20,10 @@ A simple, minimal static site builder written in Go. Gokesh converts Markdown fi
 ### Option A: Go install (recommended if you have Go)
 
 ```bash
-go install github.com/vinckr/gokesh/cmd/build@latest
-go install github.com/vinckr/gokesh/cmd/dev@latest
+go install github.com/vinckr/gokesh/cmd/gokesh@latest
 ```
 
-This installs the latest tagged release. Re-run the same commands to update.
+This installs the latest tagged release. Re-run the same command to update.
 
 ### Option B: Download a binary
 
@@ -87,13 +86,13 @@ Edit the files in `templates/` to match your design. At minimum you may want to 
 Build the homepage:
 
 ```bash
-gokesh-build page index
+gokesh build page index
 ```
 
 Build all blog posts:
 
 ```bash
-gokesh-build dir blog
+gokesh build dir blog
 ```
 
 Generated HTML lands in `public/`.
@@ -101,7 +100,7 @@ Generated HTML lands in `public/`.
 ### 7. Preview locally
 
 ```bash
-gokesh-dev
+gokesh dev
 ```
 
 Open [http://localhost:8000](http://localhost:8000) in your browser.
@@ -117,9 +116,9 @@ Copy the contents of `public/` to any static file host (GitHub Pages, Netlify, C
 ```
 gokesh/
 ├── cmd/
-│   ├── build/main.go        # Build command - converts markdown to HTML
-│   └── dev/main.go          # Dev server - serves files on localhost:8000
+│   └── gokesh/main.go       # Single binary: build and dev commands
 ├── internal/
+│   ├── build/               # Build logic and tests
 │   └── parser/
 │       ├── frontmatter.go   # In-house YAML frontmatter parser
 │       └── markdown.go      # In-house Markdown-to-HTML converter
@@ -145,44 +144,49 @@ gokesh/
 ### Build a single page
 
 ```bash
-go run cmd/build/main.go page <name>
+gokesh build page <name>
 ```
 
 This reads `./markdown/<name>.md` and writes `./public/<name>.html`.
 
 ```bash
 # Example: build the index page
-go run cmd/build/main.go page index
+gokesh build page index
 ```
 
 ### Build all pages in a directory
 
 ```bash
-go run cmd/build/main.go dir <directory>
+gokesh build dir <directory>
 ```
 
 This reads all `.md` files in `./markdown/<directory>/` and writes corresponding `.html` files to `./public/`.
 
 ```bash
 # Example: build all blog posts
-go run cmd/build/main.go dir blog
+gokesh build dir blog
 ```
 
 ### Preview your site locally
 
 ```bash
-make dev
+gokesh dev
 ```
 
-This builds all test pages and starts a local server at [http://localhost:8000](http://localhost:8000).
+Starts a local server at [http://localhost:8000](http://localhost:8000) serving `public/`.
 
 ### Make commands
 
-| Command     | Description                                         |
-|-------------|-----------------------------------------------------|
-| `make test` | Build test pages (index page + blog directory)      |
-| `make dev`  | Build test pages and start preview server           |
-| `make help` | Show all available Make commands                    |
+| Command                       | Description                                    |
+|-------------------------------|------------------------------------------------|
+| `make test`                   | Run tests                                      |
+| `make vet`                    | Run go vet                                     |
+| `make build`                  | Build binary to `bin/gokesh`                   |
+| `make dev`                    | Build example pages and start preview server   |
+| `make install`                | Install binary to `$GOPATH/bin`                |
+| `make update-golden`          | Update golden test files                       |
+| `make release VERSION=v0.1.0` | Tag, push, and trigger a release               |
+| `make help`                   | Show all available Make commands               |
 
 ## Writing Content
 
@@ -280,6 +284,29 @@ Planned improvements for the 1.0 release:
 8. **Static file copying** — Copy stylesheets and assets from `static/` into `public/`
 9. **Better errors** — File and line number context in error messages instead of bare `log.Fatalf`
 10. **Structured CLI** — Replace bare `os.Args` with `flag` stdlib; add `--version` and `--help`
+
+## Cutting a release
+
+Make sure all changes are committed and tests pass:
+
+```bash
+go test ./...
+git status
+```
+
+Tag the release and push:
+
+```bash
+make release VERSION=v0.1.0
+```
+
+This runs tests and vet, then tags and pushes. GitHub Actions will automatically build binaries for all platforms and publish them to the [Releases page](https://github.com/vinckr/gokesh/releases).
+
+To update an existing installation after a release:
+
+```bash
+go install github.com/vinckr/gokesh/cmd/gokesh@latest
+```
 
 ## License
 
