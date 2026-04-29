@@ -1,4 +1,4 @@
-package main
+package build
 
 import (
 	"os"
@@ -49,7 +49,7 @@ func TestBuildTemplate(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "page.tmpl"), pageTmpl)
 	writeFile(t, filepath.Join(dir, "body.tmpl"), bodyTmpl)
 
-	var d data
+	var d pageData
 	d.Body = "<p>hello</p>"
 	result, err := BuildTemplate(d, filepath.Join(dir, "page.tmpl"), filepath.Join(dir, "body.tmpl"))
 	if err != nil {

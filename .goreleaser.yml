@@ -1,0 +1,19 @@
+version: 2
+
+builds:
+  - id: gokesh
+    main: ./cmd/gokesh
+    binary: gokesh
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+release:
+  github:
+    owner: vinckr
+    name: gokesh
