@@ -14,6 +14,13 @@ var update = flag.Bool("update", false, "update golden files")
 // fixedNow is a stable timestamp so golden files never need updating due to the year changing.
 var fixedNow = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
+var testConfig = Config{
+	Author:      "testauthor",
+	SiteTitle:   "Test Site",
+	BaseURL:     "https://example.com",
+	Description: "A test site",
+}
+
 var defaultTemplates = []string{
 	"../../templates/page.tmpl",
 	"../../templates/header.tmpl",
@@ -22,9 +29,6 @@ var defaultTemplates = []string{
 }
 
 func TestGoldenBuild(t *testing.T) {
-	t.Setenv("AUTHOR", "testauthor")
-	t.Setenv("SITETITLE", "Test Site")
-
 	markdownRoot := "../../markdown"
 
 	err := filepath.Walk(markdownRoot, func(path string, info os.FileInfo, err error) error {
@@ -41,7 +45,7 @@ func TestGoldenBuild(t *testing.T) {
 			t.Parallel()
 
 			outDir := t.TempDir()
-			if err := BuildPageAt(fileName, dir, outDir+string(filepath.Separator), fixedNow, defaultTemplates...); err != nil {
+			if err := BuildPageAt(fileName, dir, outDir+string(filepath.Separator), fixedNow, testConfig, defaultTemplates...); err != nil {
 				t.Fatalf("BuildPageAt: %v", err)
 			}
 

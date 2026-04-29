@@ -12,9 +12,11 @@ import (
 const usage = `Usage: gokesh <command> [args]
 
 Commands:
-  build page <name>   Build a single page from markdown/<name>.md
-  build dir <name>    Build all pages in markdown/<name>/
-  dev                 Serve public/ on http://localhost:8000
+  build                Build all pages in markdown/ recursively
+  build page <name>    Build a single page from markdown/<name>.md
+  build dir <name>     Build all pages in markdown/<name>/
+  watch                Watch for changes and rebuild automatically
+  dev                  Serve public/ on http://localhost:8000
 `
 
 var defaultTemplates = []string{
@@ -30,28 +32,54 @@ func main() {
 		os.Exit(1)
 	}
 
+	cfg, err := build.LoadConfig("./gokesh.toml")
+	if err != nil {
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
+	}
+
 	switch os.Args[1] {
 	case "build":
-		if len(os.Args) < 4 {
-			fmt.Print(usage)
-			os.Exit(1)
-		}
 		if err := build.CopyStyles("./styles/", "./public/"); err != nil {
 			slog.Error("failed to copy styles", "error", err)
 			os.Exit(1)
 		}
-		var err error
-		switch os.Args[2] {
-		case "page":
-			err = build.BuildPage(os.Args[3]+".md", "./markdown/", "./public/", defaultTemplates...)
-		case "dir":
-			err = build.BuildPages("markdown/"+os.Args[3]+"/", "./public/", defaultTemplates...)
-		default:
-			fmt.Printf("unknown build type %q — use 'page' or 'dir'\n", os.Args[2])
+		if len(os.Args) == 2 {
+			if err := build.BuildAll("./markdown/", "./public/", cfg, defaultTemplates...); err != nil {
+				slog.Error("build failed", "error", err)
+				os.Exit(1)
+			}
+		} else {
+			if len(os.Args) < 4 {
+				fmt.Print(usage)
+				os.Exit(1)
+			}
+			switch os.Args[2] {
+			case "page":
+				name := os.Args[3]
+				if err := build.BuildPage(name+".md", "./markdown/", "./public/", cfg, defaultTemplates...); err != nil {
+					slog.Error("could not build page", "name", name, "error", err)
+					os.Exit(1)
+				}
+			case "dir":
+				dir := os.Args[3]
+				if err := build.BuildPages("./markdown/"+dir+"/", "./public/", cfg, defaultTemplates...); err != nil {
+					slog.Error("could not build directory", "dir", dir, "error", err)
+					os.Exit(1)
+				}
+			default:
+				fmt.Printf("unknown build type %q — use 'page' or 'dir'\n", os.Args[2])
+				os.Exit(1)
+			}
+		}
+		if err := build.GenerateSitemap("./public/", cfg.BaseURL); err != nil {
+			slog.Error("failed to generate sitemap", "error", err)
 			os.Exit(1)
 		}
-		if err != nil {
-			slog.Error("build failed", "error", err)
+
+	case "watch":
+		if err := build.Watch("./public/", cfg, defaultTemplates...); err != nil {
+			slog.Error("watch failed", "error", err)
 			os.Exit(1)
 		}
 

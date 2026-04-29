@@ -1,4 +1,4 @@
-.PHONY: help test vet build dev install update-golden release
+.PHONY: help test vet build dev watch install update-golden release
 
 help: # show all available Make commands
 	@cat Makefile | grep '^[^ ]*:' | grep -v '^\.bin/' | grep -v '^node_modules' | grep -v '.SILENT:' | grep -v help | sed 's/:.*#/#/' | column -s "#" -t
@@ -11,6 +11,9 @@ vet: # run go vet
 
 build: # build the gokesh binary
 	go build -o bin/gokesh ./cmd/gokesh
+
+watch: # watch for changes and rebuild automatically
+	go run ./cmd/gokesh watch
 
 dev: # build example pages and start preview server at localhost:8000
 	go run ./cmd/gokesh build page index

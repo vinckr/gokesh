@@ -1,0 +1,6 @@
+# gokesh site configuration
+
+author = "vinckr"
+site_title = "gokesh"
+base_url = "https://gokesh.com"
+description = "A minimal static site builder in Go."

@@ -2,11 +2,13 @@ package build
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -14,14 +16,42 @@ import (
 	"github.com/vinckr/gokesh/internal/parser"
 )
 
+// Config holds site-wide configuration from gokesh.toml.
+type Config struct {
+	Author      string
+	SiteTitle   string
+	BaseURL     string
+	Description string
+}
+
+// LoadConfig reads and parses gokesh.toml. Returns an empty Config if the file does not exist.
+func LoadConfig(path string) (Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Config{}, nil
+		}
+		return Config{}, fmt.Errorf("reading config %q: %w", path, err)
+	}
+	fields := parser.ParseConfig(data)
+	return Config{
+		Author:      fields["author"],
+		SiteTitle:   fields["site_title"],
+		BaseURL:     fields["base_url"],
+		Description: fields["description"],
+	}, nil
+}
+
 // pageData holds the full context passed to page templates.
 type pageData struct {
-	Body       string
-	SiteTitle  string
-	Year       string
-	Author     string
-	Data       json.RawMessage
-	Pagematter struct {
+	Body        string
+	SiteTitle   string
+	BaseURL     string
+	Description string
+	Year        string
+	Author      string
+	Data        json.RawMessage
+	Pagematter  struct {
 		PageTitle string
 	}
 }
@@ -30,7 +60,10 @@ type pageData struct {
 func GetFilesFromDirectory(path string) ([]fs.DirEntry, error) {
 	files, err := os.ReadDir(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading directory %s: %w", path, err)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("directory not found: %q", path)
+		}
+		return nil, fmt.Errorf("reading directory %q: %w", path, err)
 	}
 	return files, nil
 }
@@ -39,7 +72,10 @@ func GetFilesFromDirectory(path string) ([]fs.DirEntry, error) {
 func ReadMarkdownFileFromDirectory(path string, filename string) ([]byte, error) {
 	md, err := os.ReadFile(path + filename)
 	if err != nil {
-		return nil, fmt.Errorf("reading %s%s: %w", path, filename, err)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("file not found: %q", path+filename)
+		}
+		return nil, fmt.Errorf("reading %q: %w", path+filename, err)
 	}
 	return md, nil
 }
@@ -86,15 +122,11 @@ func WriteHTMLFile(fileName string, outpath string, page string) error {
 	return nil
 }
 
-func BuildPage(fileName string, dir string, outpath string, templates ...string) error {
-	return BuildPageAt(fileName, dir, outpath, time.Now(), templates...)
+func BuildPage(fileName string, dir string, outpath string, cfg Config, templates ...string) error {
+	return BuildPageAt(fileName, dir, outpath, time.Now(), cfg, templates...)
 }
 
-func BuildPageAt(fileName string, dir string, outpath string, now time.Time, templates ...string) error {
-	author := os.Getenv("AUTHOR")
-	sitetitle := os.Getenv("SITETITLE")
-	currentYear := now.Format("2006")
-
+func BuildPageAt(fileName string, dir string, outpath string, now time.Time, cfg Config, templates ...string) error {
 	md, err := ReadMarkdownFileFromDirectory(dir, fileName)
 	if err != nil {
 		return err
@@ -103,9 +135,11 @@ func BuildPageAt(fileName string, dir string, outpath string, now time.Time, tem
 
 	var d pageData
 	d.Body = string(parser.ToHTML(body))
-	d.SiteTitle = sitetitle
-	d.Year = currentYear
-	d.Author = author
+	d.Author = cfg.Author
+	d.SiteTitle = cfg.SiteTitle
+	d.BaseURL = cfg.BaseURL
+	d.Description = cfg.Description
+	d.Year = now.Format("2006")
 	d.Pagematter.PageTitle = matter["title"]
 
 	if dataFile := matter["data"]; dataFile != "" {
@@ -179,15 +213,82 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func BuildPages(dir string, outpath string, templates ...string) error {
+func BuildPages(dir string, outpath string, cfg Config, templates ...string) error {
 	files, err := GetFilesFromDirectory(dir)
 	if err != nil {
 		return err
 	}
 	for _, file := range files {
-		if err := BuildPage(file.Name(), dir, outpath, templates...); err != nil {
+		if err := BuildPage(file.Name(), dir, outpath, cfg, templates...); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// BuildAll walks markdownDir recursively and builds every .md file it finds.
+func BuildAll(markdownDir string, outpath string, cfg Config, templates ...string) error {
+	return filepath.Walk(markdownDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		dir := filepath.Dir(path) + string(filepath.Separator)
+		return BuildPage(filepath.Base(path), dir, outpath, cfg, templates...)
+	})
+}
+
+type sitemapURL struct {
+	Loc string `xml:"loc"`
+}
+
+type sitemapXML struct {
+	XMLName xml.Name     `xml:"urlset"`
+	XMLNS   string       `xml:"xmlns,attr"`
+	URLs    []sitemapURL `xml:"url"`
+}
+
+// GenerateSitemap writes a sitemap.xml to outpath listing all .html files.
+// Skips generation if baseURL is empty.
+func GenerateSitemap(outpath string, baseURL string) error {
+	if baseURL == "" {
+		slog.Warn("skipping sitemap: base_url not set in gokesh.toml")
+		return nil
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	var urls []sitemapURL
+	err := filepath.Walk(outpath, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".html") {
+			return err
+		}
+		rel, err := filepath.Rel(outpath, path)
+		if err != nil {
+			return err
+		}
+		urls = append(urls, sitemapURL{Loc: baseURL + "/" + filepath.ToSlash(rel)})
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("building sitemap: %w", err)
+	}
+
+	sm := sitemapXML{
+		XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9",
+		URLs:  urls,
+	}
+	out, err := xml.MarshalIndent(sm, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encoding sitemap: %w", err)
+	}
+
+	dest := filepath.Join(outpath, "sitemap.xml")
+	content := append([]byte(xml.Header), out...)
+	if err := os.WriteFile(dest, content, 0644); err != nil {
+		return fmt.Errorf("writing sitemap: %w", err)
+	}
+	slog.Info("sitemap written", "file", dest)
 	return nil
 }
