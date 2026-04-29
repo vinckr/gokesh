@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Markdown Reference · testauthor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+
+<article>
+    <h1>Markdown Reference</h1>
+<p>This page demonstrates every Markdown feature supported by Gokesh's in-house parser. Use it to verify rendering and as a visual style reference.</p>
+<hr>
+<h2>Headings</h2>
+<h1>Heading 1</h1>
+<h2>Heading 2</h2>
+<h3>Heading 3</h3>
+<h4>Heading 4</h4>
+<h5>Heading 5</h5>
+<h6>Heading 6</h6>
+<hr>
+<h2>Inline Formatting</h2>
+<p>Plain text, <strong>bold text</strong>, <em>italic text</em>, <strong><em>bold and italic</em></strong>, <del>strikethrough</del>, and <code>inline code</code> all render inline.</p>
+<p>You can combine them in a sentence: the <code>ParseFrontmatter</code> function returns a <strong>map of strings</strong>, <em>not</em> a struct, so it stays <del>rigid</del> <strong>flexible</strong> by default.</p>
+<hr>
+<h2>Blockquote</h2>
+<blockquote>
+<p>Simplicity is prerequisite for reliability.
+— Edsger W. Dijkstra</p>
+</blockquote>
+<blockquote>
+<p>The best tool is the one you understand completely.</p>
+</blockquote>
+<hr>
+<h2>Lists</h2>
+<h3>Unordered</h3>
+<ul>
+<li>Zero external dependencies</li>
+<li>In-house Markdown parser</li>
+<li>In-house frontmatter parser</li>
+<li>Go standard library only</li>
+<li>GitHub Actions CI</li>
+</ul>
+<h3>Ordered</h3>
+<ol>
+<li>Write your Markdown in <code>markdown/</code></li>
+<li>Run <code>make test</code> to build HTML into <code>public/</code></li>
+<li>Run <code>make dev</code> to preview at <code>localhost:8000</code></li>
+<li>Customize <code>templates/</code> to change the layout</li>
+<li>Edit <code>.env</code> to set your author name and site title</li>
+</ol>
+<hr>
+<h2>Links and Images</h2>
+<p>Visit <a href="https://golang.org">golang.org</a> for Go documentation.</p>
+<p>The Gokesh source is at <a href="https://github.com/vinckr/gokesh">github.com/vinckr/gokesh</a>.</p>
+<p><img src="https://go.dev/blog/gopher/gopher.png" alt="Go Gopher"></p>
+<hr>
+<h2>Code Blocks</h2>
+<p>A fenced code block — inline formatting is <strong>not</strong> processed inside:</p>
+<pre><code>package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, Gokesh!")
+}
+</code></pre>
+<p>The frontmatter parser in action:</p>
+<pre><code>---
+pagetitle: "My Page"
+author: vinckr
+draft: false
+---
+
+Page content starts here.
+</code></pre>
+<hr>
+<h2>Tables</h2>
+<table>
+<thead>
+<tr><th>Feature</th><th>Implemented</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td>Headings</td><td>yes</td><td>h1 through h6</td></tr>
+<tr><td>Bold / Italic</td><td>yes</td><td><code>**</code> and <code>_</code> syntax</td></tr>
+<tr><td>Strikethrough</td><td>yes</td><td><code>~~text~~</code></td></tr>
+<tr><td>Inline code</td><td>yes</td><td>backtick syntax</td></tr>
+<tr><td>Links</td><td>yes</td><td><code>[text](url)</code></td></tr>
+<tr><td>Images</td><td>yes</td><td><code>![alt](url)</code></td></tr>
+<tr><td>Blockquotes</td><td>yes</td><td><code>&gt; text</code></td></tr>
+<tr><td>Unordered lists</td><td>yes</td><td><code>-</code> or <code>*</code> prefix</td></tr>
+<tr><td>Ordered lists</td><td>yes</td><td><code>1.</code> prefix</td></tr>
+<tr><td>Fenced code</td><td>yes</td><td>triple backtick fence</td></tr>
+<tr><td>Tables</td><td>yes</td><td>pipe syntax with header row</td></tr>
+<tr><td>Footnotes</td><td>no</td><td>planned for 1.0</td></tr>
+<tr><td>Task lists</td><td>no</td><td>planned for 1.0</td></tr>
+</tbody>
+</table>
+<hr>
+<h2>HTML Code</h2>
+<p>HTML inside a fenced code block is escaped and displayed as literal text — angle brackets and all:</p>
+<pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;My Page&lt;/title&gt;
+    &lt;link rel="stylesheet" href="style.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;article&gt;
+        &lt;h1&gt;Hello World&lt;/h1&gt;
+        &lt;p&gt;This is a &lt;strong&gt;paragraph&lt;/strong&gt; with &lt;a href="https://example.com"&gt;a link&lt;/a&gt;.&lt;/p&gt;
+    &lt;/article&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<p>Inline HTML tags in a code span are also escaped: <code>&lt;div class="wrapper"&gt;</code>, <code>&lt;img src="photo.jpg" alt=""&gt;</code>, <code>&lt;!-- comment --&gt;</code>.</p>
+<p>Raw HTML written directly in a paragraph passes through to the output as-is — useful for one-off elements the parser does not handle: <kbd>Ctrl</kbd> + <kbd>S</kbd>.</p>
+<hr>
+<h2>Paragraphs</h2>
+<p>A paragraph is any block of text not matched by another rule. Consecutive lines are joined into a single <code>&lt;p&gt;</code> tag.</p>
+<p>Blank lines separate paragraphs from each other and from other blocks.</p>
+<p>This is the third paragraph. It contains <strong>bold</strong>, <em>italic</em>, and <code>code</code> inline to demonstrate that inline processing works inside paragraphs too.</p>
+
+</article>
+
+<div class="footer">
+        All Rites Reversed Ⓚ 2026 by <a href="https://github.com/testauthor">testauthor</a>. Powered by <a href="https://golang.org">Go</a>.
+    </div>
+</body>
+</html>
+

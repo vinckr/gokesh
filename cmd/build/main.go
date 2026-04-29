@@ -2,20 +2,18 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"text/template"
 	"time"
 
-	"github.com/adrg/frontmatter"
-	"github.com/gomarkdown/markdown"
-	"github.com/gomarkdown/markdown/parser"
+	"github.com/vinckr/gokesh/internal/parser"
 )
 
-// struct for data object including content and global config
-
+// data holds the full context passed to page templates.
 type data struct {
 	Body       string
 	SiteTitle  string
@@ -26,90 +24,141 @@ type data struct {
 	}
 }
 
-var matter = data{}.Pagematter
-
-// get files in directory
-func GetFilesFromDirectory(path string) []fs.DirEntry {
-	files, readDirErr := os.ReadDir(path)
-	if readDirErr != nil {
-		log.Fatalf("Error getting files: %s", readDirErr)
-	}
-	return files
-}
-
-// read markdown file from directory
-func ReadMarkdownFileFromDirectory(path string, filename string) []byte {
-	md, readErr := os.ReadFile(path + filename)
-	if readErr != nil {
-		log.Fatalf("Error reading markdown file: %s", readErr)
-	}
-	return md
-}
-
-// split body and frontmatter
-func SplitBodyAndFrontmatter(md []byte) []byte {
-	bodyOnly, err := frontmatter.Parse(strings.NewReader(string(md)), &matter)
+// GetFilesFromDirectory returns all directory entries at path.
+func GetFilesFromDirectory(path string) ([]fs.DirEntry, error) {
+	files, err := os.ReadDir(path)
 	if err != nil {
-		log.Fatalf("Error parsing frontmatter: %s", err)
+		return nil, fmt.Errorf("reading directory %s: %w", path, err)
 	}
-	return bodyOnly
+	return files, nil
 }
 
-// insert body in template
-func BuildTemplate(data data, templates ...string) string {
-	var t = template.Must(template.ParseFiles(templates...))
+// ReadMarkdownFileFromDirectory reads a markdown file from a directory.
+func ReadMarkdownFileFromDirectory(path string, filename string) ([]byte, error) {
+	md, err := os.ReadFile(path + filename)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s%s: %w", path, filename, err)
+	}
+	return md, nil
+}
+
+// SplitBodyAndFrontmatter extracts frontmatter and returns only the body.
+func SplitBodyAndFrontmatter(md []byte) ([]byte, map[string]string) {
+	matter, body := parser.ParseFrontmatter(md)
+	return body, matter
+}
+
+// BuildTemplate renders the named "Page" template with data and returns HTML.
+func BuildTemplate(d data, templates ...string) (string, error) {
+	t, err := template.ParseFiles(templates...)
+	if err != nil {
+		return "", fmt.Errorf("parsing templates: %w", err)
+	}
 	build := new(strings.Builder)
-	templateErr := t.ExecuteTemplate(build, "Page", data)
-	if templateErr != nil {
-		log.Fatalf("Error building the template %s", templateErr)
+	if err := t.ExecuteTemplate(build, "Page", d); err != nil {
+		return "", fmt.Errorf("executing template: %w", err)
 	}
-	return build.String()
+	return build.String(), nil
 }
 
-// write html file
-func WriteHTMLFile(fileName string, outpath string, page string) {
+// WriteHTMLFile writes the rendered page HTML to disk.
+func WriteHTMLFile(fileName string, outpath string, page string) error {
 	outPath := outpath + strings.TrimSuffix(fileName, ".md") + ".html"
-	writeErr := os.WriteFile(outPath, []byte(page), 0644)
-	if writeErr != nil {
-		log.Fatalf("Error writing file: %s", writeErr)
+	if err := os.WriteFile(outPath, []byte(page), 0644); err != nil {
+		return fmt.Errorf("writing %s: %w", outPath, err)
 	}
-	fmt.Printf("\n" + fileName + " written to " + outPath + "\n" + "------------------------")
+	slog.Info("file written", "file", outPath)
+	return nil
 }
 
-func BuildPage(fileName string, dir string, outpath string, templates ...string) {
+func BuildPage(fileName string, dir string, outpath string, templates ...string) error {
+	return BuildPageAt(fileName, dir, outpath, time.Now(), templates...)
+}
 
-	// global config
+func BuildPageAt(fileName string, dir string, outpath string, now time.Time, templates ...string) error {
 	author := os.Getenv("AUTHOR")
 	sitetitle := os.Getenv("SITETITLE")
-	currentyear := time.Now().Format("2006")
-	// get markdown body
-	md := ReadMarkdownFileFromDirectory(dir, fileName)
-	bodyOnly := SplitBodyAndFrontmatter(md)
-	// convert markdown to html body
-	extensions := parser.CommonExtensions | parser.Footnotes
-	parser := parser.NewWithExtensions(extensions)
-	body := markdown.ToHTML(bodyOnly, parser, nil)
-	// build page object with html body and frontmatter
-	page := data{string(body), sitetitle, currentyear, author, matter}
-	fmt.Printf("\nBuilding page %s:", page.Pagematter.PageTitle)
-	// build page with template and write to file
-	build := BuildTemplate(page, templates...)
-	WriteHTMLFile(fileName, outpath, build)
+	currentYear := now.Format("2006")
+
+	md, err := ReadMarkdownFileFromDirectory(dir, fileName)
+	if err != nil {
+		return err
+	}
+	body, matter := SplitBodyAndFrontmatter(md)
+
+	var d data
+	d.Body = string(parser.ToHTML(body))
+	d.SiteTitle = sitetitle
+	d.Year = currentYear
+	d.Author = author
+	d.Pagematter.PageTitle = matter["pagetitle"]
+
+	slog.Info("building page", "title", d.Pagematter.PageTitle)
+	build, err := BuildTemplate(d, templates...)
+	if err != nil {
+		return err
+	}
+	return WriteHTMLFile(fileName, outpath, build)
 }
 
-func BuildPages(dir string, outpath string, templates ...string) {
-
-	files := GetFilesFromDirectory(dir)
-	// build pages from files in directory
-	for _, file := range files {
-		fileName := file.Name()
-		BuildPage(fileName, dir, outpath, templates...)
+// CopyStyles copies all files from stylesDir into outpath.
+// styles/ is the single source of truth for CSS — edit there, rebuild, done.
+func CopyStyles(stylesDir string, outpath string) error {
+	entries, err := os.ReadDir(stylesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("reading styles directory: %w", err)
 	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		src := stylesDir + entry.Name()
+		dst := outpath + entry.Name()
+		if err := copyFile(src, dst); err != nil {
+			return err
+		}
+		slog.Info("style copied", "src", src, "dst", dst)
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("opening %s: %w", src, err)
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("creating %s: %w", dst, err)
+	}
+	defer out.Close()
+
+	if _, err = io.Copy(out, in); err != nil {
+		return fmt.Errorf("copying %s to %s: %w", src, dst, err)
+	}
+	return nil
+}
+
+func BuildPages(dir string, outpath string, templates ...string) error {
+	files, err := GetFilesFromDirectory(dir)
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		if err := BuildPage(file.Name(), dir, outpath, templates...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func main() {
-
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		fmt.Println("Usage: go run main.go <input_type> <input_path> [output_path]")
 		fmt.Println("input_type: 'page' for single page or 'dir' for directory")
 		return
@@ -118,11 +167,30 @@ func main() {
 	inputPath := os.Args[2]
 	outputPath := "./public/"
 
-	if inputType == "page" {
-		BuildPage(inputPath+".md", "./markdown/", outputPath, "./templates/page.tmpl", "./templates/header.tmpl", "./templates/footer.tmpl", "./templates/body.tmpl")
-	} else if inputType == "dir" {
-		BuildPages("markdown/"+inputPath+"/", outputPath, "./templates/page.tmpl", "./templates/header.tmpl", "./templates/footer.tmpl", "./templates/body.tmpl")
-	} else {
+	tmpl := []string{
+		"./templates/page.tmpl",
+		"./templates/header.tmpl",
+		"./templates/footer.tmpl",
+		"./templates/body.tmpl",
+	}
+
+	if err := CopyStyles("./styles/", outputPath); err != nil {
+		slog.Error("failed to copy styles", "error", err)
+		os.Exit(1)
+	}
+
+	var err error
+	switch inputType {
+	case "page":
+		err = BuildPage(inputPath+".md", "./markdown/", outputPath, tmpl...)
+	case "dir":
+		err = BuildPages("markdown/"+inputPath+"/", outputPath, tmpl...)
+	default:
 		fmt.Println("Invalid input type. Use 'page' or 'dir'.")
+		return
+	}
+	if err != nil {
+		slog.Error("build failed", "error", err)
+		os.Exit(1)
 	}
 }

@@ -1,0 +1,233 @@
+/* Gokesh — base stylesheet */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg:        #0f0f0f;
+  --surface:   #181818;
+  --border:    #2a2a2a;
+  --muted:     #555;
+  --text:      #d4d0c8;
+  --heading:   #f0ece0;
+  --accent:    #c9a84c;
+  --code-bg:   #141414;
+  --code-text: #9ecbff;
+  --link:      #c9a84c;
+  --link-hover:#e8c96a;
+
+  --font-body: Georgia, 'Times New Roman', serif;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  --measure:   68ch;
+  --gap:       1.75rem;
+}
+
+html {
+  font-size: 18px;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.75;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Layout ───────────────────────────────────────────── */
+
+article {
+  max-width: var(--measure);
+  margin: 4rem auto;
+  padding: 0 1.5rem;
+}
+
+/* ── Typography ───────────────────────────────────────── */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-body);
+  color: var(--heading);
+  line-height: 1.25;
+  margin: 2.5rem 0 0.75rem;
+  font-weight: bold;
+  letter-spacing: -0.01em;
+}
+
+h1 { font-size: 2.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+h2 { font-size: 1.6rem;  border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.05rem; }
+h5 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.06em; }
+h6 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+p {
+  margin: 0 0 var(--gap);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2.5rem 0;
+}
+
+strong { color: var(--heading); font-weight: bold; }
+em     { font-style: italic; }
+del    { color: var(--muted); text-decoration: line-through; }
+
+/* ── Links ────────────────────────────────────────────── */
+
+a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+/* ── Inline code ──────────────────────────────────────── */
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}
+
+/* ── Code blocks ──────────────────────────────────────── */
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 1.25rem 1.5rem;
+  overflow-x: auto;
+  margin: 0 0 var(--gap);
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85em;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* ── Blockquotes ──────────────────────────────────────── */
+
+blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 0 0 var(--gap);
+  padding: 0.75rem 1.5rem;
+  background: var(--surface);
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
+  color: var(--text);
+}
+
+blockquote p {
+  margin: 0;
+}
+
+/* ── Lists ────────────────────────────────────────────── */
+
+ul, ol {
+  margin: 0 0 var(--gap);
+  padding-left: 1.5rem;
+}
+
+li {
+  margin-bottom: 0.35rem;
+}
+
+ul li::marker {
+  color: var(--accent);
+}
+
+ol li::marker {
+  color: var(--accent);
+}
+
+/* ── Tables ───────────────────────────────────────────── */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--gap);
+  font-size: 0.9rem;
+}
+
+thead {
+  background: var(--surface);
+}
+
+th {
+  color: var(--heading);
+  text-align: left;
+  font-weight: bold;
+  padding: 0.6rem 1rem;
+  border-bottom: 2px solid var(--accent);
+}
+
+td {
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: var(--surface);
+}
+
+/* ── Images ───────────────────────────────────────────── */
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+  margin: 0 0 var(--gap);
+}
+
+/* ── Footer ───────────────────────────────────────────── */
+
+.footer {
+  max-width: var(--measure);
+  margin: 2rem auto 3rem;
+  padding: 1.5rem 1.5rem 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.footer a {
+  color: var(--muted);
+}
+
+.footer a:hover {
+  color: var(--text);
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  html { font-size: 16px; }
+  article { margin: 2rem auto; }
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.35rem; }
+  th, td { padding: 0.4rem 0.6rem; }
+}
