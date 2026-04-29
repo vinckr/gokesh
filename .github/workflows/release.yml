@@ -1,0 +1,25 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Build binaries
+        run: |
+          GOOS=linux   GOARCH=amd64 go build -o gokesh-linux-amd64   ./cmd/build                                                                                               
+          GOOS=darwin  GOARCH=amd64 go build -o gokesh-darwin-amd64  ./cmd/build                                                                                               
+          GOOS=darwin  GOARCH=arm64 go build -o gokesh-darwin-arm64  ./cmd/build
+          GOOS=windows GOARCH=amd64 go build -o gokesh-windows-amd64.exe ./cmd/build
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: gokesh-*
