@@ -13,14 +13,104 @@ A simple, minimal static site builder written in Go. Gokesh converts Markdown fi
 
 ## Requirements
 
-- Go 1.19 or later
+- Go 1.22 or later
 
 ## Installation
 
+### Option A: Go install (recommended if you have Go)
+
 ```bash
-git clone https://github.com/vinckr/gokesh.git
-cd gokesh
+go install github.com/vinckr/gokesh/cmd/build@latest
+go install github.com/vinckr/gokesh/cmd/dev@latest
 ```
+
+This installs the latest tagged release. Re-run the same commands to update.
+
+### Option B: Download a binary
+
+Download a pre-built binary for your platform from the [Releases page](https://github.com/vinckr/gokesh/releases), extract it, and put it somewhere on your `$PATH`.
+
+---
+
+## Getting Started
+
+This guide assumes you already have a folder of Markdown files and want to turn them into a blog.
+
+### 1. Create a project directory
+
+```bash
+mkdir myblog && cd myblog
+```
+
+### 2. Configure your site
+
+Edit the `.env` file at the project root:
+
+```
+AUTHOR=yourname
+SITETITLE=myblog.com
+```
+
+### 3. Add frontmatter to your Markdown files
+
+Every Markdown file needs a YAML frontmatter block at the top:
+
+```markdown
+---
+pagetitle: "My First Post"
+---
+
+# My First Post
+
+Content goes here.
+```
+
+### 4. Put your Markdown files in the right place
+
+- **Index / standalone pages** → `markdown/<name>.md`
+- **Blog posts** → `markdown/blog/<name>.md` (or any subdirectory name you choose)
+
+```
+markdown/
+├── index.md          # your homepage
+└── blog/
+    ├── first-post.md
+    └── second-post.md
+```
+
+### 5. Customize the templates
+
+Edit the files in `templates/` to match your design. At minimum you may want to update `header.tmpl` to change the site name, stylesheet, or add navigation.
+
+### 6. Build your site
+
+Build the homepage:
+
+```bash
+gokesh-build page index
+```
+
+Build all blog posts:
+
+```bash
+gokesh-build dir blog
+```
+
+Generated HTML lands in `public/`.
+
+### 7. Preview locally
+
+```bash
+gokesh-dev
+```
+
+Open [http://localhost:8000](http://localhost:8000) in your browser.
+
+### 8. Deploy
+
+Copy the contents of `public/` to any static file host (GitHub Pages, Netlify, Cloudflare Pages, an S3 bucket, etc.). No server-side runtime required.
+
+---
 
 ## Project Structure
 
