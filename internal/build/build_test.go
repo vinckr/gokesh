@@ -10,11 +10,11 @@ import (
 func TestSplitBodyAndFrontmatter(t *testing.T) {
 	t.Parallel()
 
-	md := []byte("---\npagetitle: \"Test Page\"\n---\n# Hello\n\nWorld")
+	md := []byte("---\ntitle: \"Test Page\"\n---\n# Hello\n\nWorld")
 	body, matter := SplitBodyAndFrontmatter(md)
 
-	if matter["pagetitle"] != "Test Page" {
-		t.Errorf("pagetitle = %q, want %q", matter["pagetitle"], "Test Page")
+	if matter["title"] != "Test Page" {
+		t.Errorf("title = %q, want %q", matter["title"], "Test Page")
 	}
 	if !strings.Contains(string(body), "# Hello") {
 		t.Errorf("body missing heading: %s", string(body))

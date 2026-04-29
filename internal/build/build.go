@@ -1,6 +1,7 @@
 package build
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -19,6 +20,7 @@ type pageData struct {
 	SiteTitle  string
 	Year       string
 	Author     string
+	Data       json.RawMessage
 	Pagematter struct {
 		PageTitle string
 	}
@@ -48,9 +50,22 @@ func SplitBodyAndFrontmatter(md []byte) ([]byte, map[string]string) {
 	return body, matter
 }
 
+// jsonify returns the raw JSON string for embedding in templates.
+func jsonify(v json.RawMessage) string {
+	return string(v)
+}
+
+// items parses a RawMessage JSON array into a slice for template ranging.
+func items(v json.RawMessage) []map[string]any {
+	var result []map[string]any
+	json.Unmarshal(v, &result)
+	return result
+}
+
 // BuildTemplate renders the named "Page" template with data and returns HTML.
 func BuildTemplate(d pageData, templates ...string) (string, error) {
-	t, err := template.ParseFiles(templates...)
+	funcMap := template.FuncMap{"jsonify": jsonify, "items": items}
+	t, err := template.New("").Funcs(funcMap).ParseFiles(templates...)
 	if err != nil {
 		return "", fmt.Errorf("parsing templates: %w", err)
 	}
@@ -91,10 +106,28 @@ func BuildPageAt(fileName string, dir string, outpath string, now time.Time, tem
 	d.SiteTitle = sitetitle
 	d.Year = currentYear
 	d.Author = author
-	d.Pagematter.PageTitle = matter["pagetitle"]
+	d.Pagematter.PageTitle = matter["title"]
 
-	slog.Info("building page", "title", d.Pagematter.PageTitle)
-	html, err := BuildTemplate(d, templates...)
+	if dataFile := matter["data"]; dataFile != "" {
+		raw, err := os.ReadFile("./data/" + dataFile)
+		if err != nil {
+			return fmt.Errorf("reading data file %s: %w", dataFile, err)
+		}
+		if !json.Valid(raw) {
+			return fmt.Errorf("invalid JSON in data file %s", dataFile)
+		}
+		d.Data = json.RawMessage(raw)
+	}
+
+	tmpl := templates
+	if name := matter["template"]; name != "" {
+		tmpl = make([]string, len(templates))
+		copy(tmpl, templates)
+		tmpl[0] = "./templates/" + strings.TrimSuffix(name, ".tmpl") + ".tmpl"
+	}
+
+	slog.Info("building page", "title", d.Pagematter.PageTitle, "template", tmpl[0])
+	html, err := BuildTemplate(d, tmpl...)
 	if err != nil {
 		return err
 	}
@@ -103,6 +136,9 @@ func BuildPageAt(fileName string, dir string, outpath string, now time.Time, tem
 
 // CopyStyles copies all files from stylesDir into outpath.
 func CopyStyles(stylesDir string, outpath string) error {
+	if err := os.MkdirAll(outpath, 0755); err != nil {
+		return fmt.Errorf("creating output directory %s: %w", outpath, err)
+	}
 	entries, err := os.ReadDir(stylesDir)
 	if err != nil {
 		if os.IsNotExist(err) {

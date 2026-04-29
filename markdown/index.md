@@ -1,5 +1,5 @@
 ---
-pagetitle: "Gokesh Static Site Builder"
+title: "Gokesh Static Site Builder"
 ---
 
 # Blog

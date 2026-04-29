@@ -1,5 +1,5 @@
 ---
-pagetitle: "Markdown Reference"
+title: "Markdown Reference"
 ---
 
 # Markdown Reference

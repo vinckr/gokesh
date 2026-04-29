@@ -1,0 +1,53 @@
+{{define "Page"}}
+{{template "Header" . }}
+<body>
+<main>
+  <h1>{{ .Pagematter.PageTitle }}</h1>
+
+  {{ if .Data }}
+  <div class="mt-4">
+    <button id="randomBtn" type="button" class="cs-btn">random recommendation</button>
+    <br>
+    <span id="randomOut" class="cs-input mt-4"></span>
+  </div>
+
+  <section>
+    <details>
+      <summary>Click to expand full list</summary>
+      {{ range items .Data }}
+        {{ if index . "quote" }}
+        <figure class="my-8">
+          <blockquote><p>{{ index . "quote" }}</p></blockquote>
+          <figcaption>— <a href="{{ index . "url" }}">{{ index . "author" }}</a></figcaption>
+        </figure>
+        <hr>
+        {{ else }}
+        <li><a href="{{ index . "url" }}">{{ index . "title" }}</a></li>
+        {{ end }}
+      {{ end }}
+    </details>
+  </section>
+
+  <script>
+    const LIST_ITEMS = {{ jsonify .Data }};
+    const btn = document.getElementById("randomBtn");
+    const out = document.getElementById("randomOut");
+
+    function pick() {
+      if (!Array.isArray(LIST_ITEMS) || LIST_ITEMS.length === 0) return;
+      const it = LIST_ITEMS[Math.floor(Math.random() * LIST_ITEMS.length)];
+      if (it.quote) {
+        out.innerHTML = `"${it.quote}" — <a href="${it.url}">${it.author}</a>`;
+      } else {
+        out.innerHTML = `<a href="${it.url}">${it.title}</a>`;
+      }
+    }
+
+    btn?.addEventListener("click", pick);
+  </script>
+  {{ else }}
+  <article>{{ .Body }}</article>
+  {{ end }}
+</main>
+{{template "Footer" . }}
+{{end}}

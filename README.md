@@ -56,7 +56,7 @@ Every Markdown file needs a YAML frontmatter block at the top:
 
 ```markdown
 ---
-pagetitle: "My First Post"
+title: "My First Post"
 ---
 
 # My First Post
@@ -192,11 +192,12 @@ Starts a local server at [http://localhost:8000](http://localhost:8000) serving 
 
 ### Markdown files
 
-Place your Markdown files in the `markdown/` directory. Each file must include YAML frontmatter with at least a `pagetitle` field:
+Place your Markdown files in the `markdown/` directory. Each file must include YAML frontmatter with at least a `title` field:
 
 ```markdown
 ---
-pagetitle: "My Page Title"
+title: "My Page Title"
+template: page
 ---
 
 # Hello World
@@ -204,7 +205,10 @@ pagetitle: "My Page Title"
 Your markdown content goes here.
 ```
 
-The `pagetitle` is used in the HTML `<title>` tag and is accessible in templates as `{{ .Pagematter.PageTitle }}`.
+| Field      | Required | Description |
+|------------|----------|-------------|
+| `title`    | yes      | Used in the HTML `<title>` tag, accessible as `{{ .Pagematter.PageTitle }}` |
+| `template` | no       | Main layout template to use from `templates/`. Defaults to `page`. E.g. `template: post` uses `templates/post.tmpl` |
 
 ### Supported Markdown syntax
 
@@ -258,7 +262,7 @@ All templates receive a data object with the following fields:
 | `.SiteTitle`             | string | From `SITETITLE` in `.env`          |
 | `.Author`                | string | From `AUTHOR` in `.env`             |
 | `.Year`                  | string | Current year (auto-generated)       |
-| `.Pagematter.PageTitle`  | string | From `pagetitle` in frontmatter     |
+| `.Pagematter.PageTitle`  | string | From `title` in frontmatter     |
 
 ### Customizing templates
 

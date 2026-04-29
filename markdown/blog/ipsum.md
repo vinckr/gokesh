@@ -1,5 +1,5 @@
 ---
-pagetitle: "Ipsum"
+title: "Ipsum"
 ---
 
 # The Secret of Lorem Ipsum

@@ -1,5 +1,5 @@
 ---
-pagetitle: "Lorem"
+title: "Lorem"
 ---
 
 # Lorem Ipsum: The Evolution of Typesetting

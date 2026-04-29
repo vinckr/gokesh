@@ -26,6 +26,7 @@ update-golden: # update golden test files
 
 release: test vet # tag and push a new release (usage: make release VERSION=v0.1.0)
 	@test -n "$(VERSION)" || (echo "VERSION is required — usage: make release VERSION=v0.1.0" && exit 1)
+	@echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$$' || (echo "VERSION must be in format v0.0.0 — got: $(VERSION)" && exit 1)
 	@echo "Releasing $(VERSION)..."
 	git tag $(VERSION) -m "Release $(VERSION)"
 	git push origin $(VERSION)
