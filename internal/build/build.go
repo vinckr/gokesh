@@ -112,9 +112,24 @@ func BuildTemplate(d pageData, templates ...string) (string, error) {
 	return build.String(), nil
 }
 
-// WriteHTMLFile writes the rendered page HTML to disk.
+// WriteHTMLFile writes the rendered page HTML to disk using clean URLs.
+// index.md → outpath/index.html
+// anything.md → outpath/anything/index.html (so /anything/ serves cleanly)
 func WriteHTMLFile(fileName string, outpath string, page string) error {
-	outPath := outpath + strings.TrimSuffix(fileName, ".md") + ".html"
+	base := strings.TrimSuffix(fileName, ".md")
+	var outPath string
+	if base == "index" {
+		if err := os.MkdirAll(outpath, 0755); err != nil {
+			return fmt.Errorf("creating output directory %s: %w", outpath, err)
+		}
+		outPath = filepath.Join(outpath, "index.html")
+	} else {
+		dir := filepath.Join(outpath, base)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("creating output directory %s: %w", dir, err)
+		}
+		outPath = filepath.Join(dir, "index.html")
+	}
 	if err := os.WriteFile(outPath, []byte(page), 0644); err != nil {
 		return fmt.Errorf("writing %s: %w", outPath, err)
 	}
@@ -226,8 +241,10 @@ func BuildPages(dir string, outpath string, cfg Config, templates ...string) err
 	return nil
 }
 
-// BuildAll walks markdownDir recursively and builds every .md file it finds.
+// BuildAll walks markdownDir recursively and builds every .md file it finds,
+// preserving the directory structure in outpath.
 func BuildAll(markdownDir string, outpath string, cfg Config, templates ...string) error {
+	markdownDir = filepath.Clean(markdownDir)
 	return filepath.Walk(markdownDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -235,8 +252,13 @@ func BuildAll(markdownDir string, outpath string, cfg Config, templates ...strin
 		if info.IsDir() || !strings.HasSuffix(path, ".md") {
 			return nil
 		}
-		dir := filepath.Dir(path) + string(filepath.Separator)
-		return BuildPage(filepath.Base(path), dir, outpath, cfg, templates...)
+		dir := filepath.Dir(path)
+		relDir, err := filepath.Rel(markdownDir, dir)
+		if err != nil {
+			return err
+		}
+		fileOutpath := filepath.Join(outpath, relDir) + string(filepath.Separator)
+		return BuildPage(filepath.Base(path), dir+string(filepath.Separator), fileOutpath, cfg, templates...)
 	})
 }
 
@@ -261,14 +283,18 @@ func GenerateSitemap(outpath string, baseURL string) error {
 
 	var urls []sitemapURL
 	err := filepath.Walk(outpath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".html") {
+		if err != nil || info.IsDir() || filepath.Base(path) != "index.html" {
 			return err
 		}
-		rel, err := filepath.Rel(outpath, path)
+		relDir, err := filepath.Rel(outpath, filepath.Dir(path))
 		if err != nil {
 			return err
 		}
-		urls = append(urls, sitemapURL{Loc: baseURL + "/" + filepath.ToSlash(rel)})
+		if relDir == "." {
+			urls = append(urls, sitemapURL{Loc: baseURL + "/"})
+		} else {
+			urls = append(urls, sitemapURL{Loc: baseURL + "/" + filepath.ToSlash(relDir) + "/"})
+		}
 		return nil
 	})
 	if err != nil {

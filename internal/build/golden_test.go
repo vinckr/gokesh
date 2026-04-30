@@ -39,7 +39,15 @@ func TestGoldenBuild(t *testing.T) {
 		dir := filepath.Dir(path) + string(filepath.Separator)
 		fileName := filepath.Base(path)
 		rel, _ := filepath.Rel(markdownRoot, path)
-		goldenPath := filepath.Join("testdata", "golden", strings.TrimSuffix(rel, ".md")+".html")
+		base := strings.TrimSuffix(filepath.Base(rel), ".md")
+		var goldenPath, builtPath string
+		if base == "index" {
+			goldenPath = filepath.Join("testdata", "golden", filepath.Dir(rel), "index.html")
+			builtPath = "index.html"
+		} else {
+			goldenPath = filepath.Join("testdata", "golden", strings.TrimSuffix(rel, ".md"), "index.html")
+			builtPath = filepath.Join(base, "index.html")
+		}
 
 		t.Run(rel, func(t *testing.T) {
 			t.Parallel()
@@ -49,8 +57,7 @@ func TestGoldenBuild(t *testing.T) {
 				t.Fatalf("BuildPageAt: %v", err)
 			}
 
-			htmlFile := strings.TrimSuffix(fileName, ".md") + ".html"
-			actual, err := os.ReadFile(filepath.Join(outDir, htmlFile))
+			actual, err := os.ReadFile(filepath.Join(outDir, builtPath))
 			if err != nil {
 				t.Fatalf("built output missing for %s: %v", path, err)
 			}

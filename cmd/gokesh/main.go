@@ -63,7 +63,7 @@ func main() {
 				}
 			case "dir":
 				dir := os.Args[3]
-				if err := build.BuildPages("./markdown/"+dir+"/", "./public/", cfg, defaultTemplates...); err != nil {
+				if err := build.BuildPages("./markdown/"+dir+"/", "./public/"+dir+"/", cfg, defaultTemplates...); err != nil {
 					slog.Error("could not build directory", "dir", dir, "error", err)
 					os.Exit(1)
 				}

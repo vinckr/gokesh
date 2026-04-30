@@ -29,7 +29,8 @@ func TestWriteHTMLFile(t *testing.T) {
 		t.Fatalf("WriteHTMLFile: %v", err)
 	}
 
-	outPath := filepath.Join(dir, "test.html")
+	// non-index pages are written as <name>/index.html for clean URLs
+	outPath := filepath.Join(dir, "test", "index.html")
 	content, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatalf("output file not written: %v", err)
