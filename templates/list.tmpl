@@ -45,7 +45,9 @@
 
     btn?.addEventListener("click", pick);
   </script>
-  {{ else }}
+  {{ end }}
+
+  {{ if .Body }}
   <article>{{ .Body }}</article>
   {{ end }}
 </main>
