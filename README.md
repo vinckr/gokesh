@@ -60,6 +60,7 @@ gokesh dev     # serves public/ at http://localhost:8000
 
 | Command                    | Description                                       |
 | -------------------------- | ------------------------------------------------- |
+| `gokesh init`              | Copy example templates, styles, and README into working dir |
 | `gokesh build`             | Build all `.md` files in `markdown/` recursively  |
 | `gokesh build page <name>` | Build `markdown/<name>.md` → `public/<name>.html` |
 | `gokesh build dir <name>`  | Build all `.md` files in `markdown/<name>/`       |

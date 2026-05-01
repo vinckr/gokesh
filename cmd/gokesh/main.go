@@ -12,6 +12,7 @@ import (
 const usage = `Usage: gokesh <command> [args]
 
 Commands:
+  init                 Copy example templates, styles, and README into working dir
   build                Build all pages in markdown/ recursively
   build page <name>    Build a single page from markdown/<name>.md
   build dir <name>     Build all pages in markdown/<name>/
@@ -30,6 +31,14 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Print(usage)
 		os.Exit(1)
+	}
+
+	if os.Args[1] == "init" {
+		if err := runInit(); err != nil {
+			slog.Error("init failed", "error", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	cfg, err := build.LoadConfig("./gokesh.toml")
