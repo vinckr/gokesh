@@ -20,12 +20,7 @@ Commands:
   dev                  Serve public/ on http://localhost:8000
 `
 
-var defaultTemplates = []string{
-	"./templates/page.tmpl",
-	"./templates/header.tmpl",
-	"./templates/footer.tmpl",
-	"./templates/body.tmpl",
-}
+const templatesDir = "./templates/"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -54,7 +49,7 @@ func main() {
 			os.Exit(1)
 		}
 		if len(os.Args) == 2 {
-			if err := build.BuildAll("./markdown/", "./public/", cfg, defaultTemplates...); err != nil {
+			if err := build.BuildAll("./markdown/", "./public/", cfg, templatesDir); err != nil {
 				slog.Error("build failed", "error", err)
 				os.Exit(1)
 			}
@@ -66,13 +61,13 @@ func main() {
 			switch os.Args[2] {
 			case "page":
 				name := os.Args[3]
-				if err := build.BuildPage(name+".md", "./markdown/", "./public/", cfg, defaultTemplates...); err != nil {
+				if err := build.BuildPage(name+".md", "./markdown/", "./public/", cfg, templatesDir); err != nil {
 					slog.Error("could not build page", "name", name, "error", err)
 					os.Exit(1)
 				}
 			case "dir":
 				dir := os.Args[3]
-				if err := build.BuildPages("./markdown/"+dir+"/", "./public/"+dir+"/", cfg, defaultTemplates...); err != nil {
+				if err := build.BuildPages("./markdown/"+dir+"/", "./public/"+dir+"/", cfg, templatesDir); err != nil {
 					slog.Error("could not build directory", "dir", dir, "error", err)
 					os.Exit(1)
 				}
@@ -87,7 +82,7 @@ func main() {
 		}
 
 	case "watch":
-		if err := build.Watch("./public/", cfg, defaultTemplates...); err != nil {
+		if err := build.Watch("./public/", cfg, templatesDir); err != nil {
 			slog.Error("watch failed", "error", err)
 			os.Exit(1)
 		}

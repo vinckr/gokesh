@@ -21,12 +21,7 @@ var testConfig = Config{
 	Description: "A test site",
 }
 
-var defaultTemplates = []string{
-	"../../templates/page.tmpl",
-	"../../templates/header.tmpl",
-	"../../templates/footer.tmpl",
-	"../../templates/body.tmpl",
-}
+const testTemplatesDir = "../../templates/"
 
 func TestGoldenBuild(t *testing.T) {
 	markdownRoot := "../../markdown"
@@ -53,7 +48,7 @@ func TestGoldenBuild(t *testing.T) {
 			t.Parallel()
 
 			outDir := t.TempDir()
-			if err := BuildPageAt(fileName, dir, outDir+string(filepath.Separator), fixedNow, testConfig, defaultTemplates...); err != nil {
+			if err := BuildPageAt(fileName, dir, outDir+string(filepath.Separator), fixedNow, testConfig, testTemplatesDir); err != nil {
 				t.Fatalf("BuildPageAt: %v", err)
 			}
 

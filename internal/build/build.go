@@ -137,11 +137,43 @@ func WriteHTMLFile(fileName string, outpath string, page string) error {
 	return nil
 }
 
-func BuildPage(fileName string, dir string, outpath string, cfg Config, templates ...string) error {
-	return BuildPageAt(fileName, dir, outpath, time.Now(), cfg, templates...)
+// resolveTemplates loads all *.tmpl files from templatesDir and ensures the
+// entry-point template (the one that defines "Page") is last so its definition
+// wins when multiple files define the same template name.
+func resolveTemplates(templatesDir, entryName string) ([]string, error) {
+	all, err := filepath.Glob(filepath.Join(templatesDir, "*.tmpl"))
+	if err != nil {
+		return nil, fmt.Errorf("globbing templates in %q: %w", templatesDir, err)
+	}
+	if len(all) == 0 {
+		return nil, fmt.Errorf("no .tmpl files found in %q", templatesDir)
+	}
+
+	if entryName == "" {
+		entryName = "page"
+	}
+	entry := filepath.Join(templatesDir, strings.TrimSuffix(filepath.Base(entryName), ".tmpl")+".tmpl")
+
+	rest := make([]string, 0, len(all))
+	found := false
+	for _, t := range all {
+		if filepath.Clean(t) == filepath.Clean(entry) {
+			found = true
+		} else {
+			rest = append(rest, t)
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("template %q not found in %q", entryName, templatesDir)
+	}
+	return append(rest, entry), nil
 }
 
-func BuildPageAt(fileName string, dir string, outpath string, now time.Time, cfg Config, templates ...string) error {
+func BuildPage(fileName string, dir string, outpath string, cfg Config, templatesDir string) error {
+	return BuildPageAt(fileName, dir, outpath, time.Now(), cfg, templatesDir)
+}
+
+func BuildPageAt(fileName string, dir string, outpath string, now time.Time, cfg Config, templatesDir string) error {
 	md, err := ReadMarkdownFileFromDirectory(dir, fileName)
 	if err != nil {
 		return err
@@ -168,14 +200,12 @@ func BuildPageAt(fileName string, dir string, outpath string, now time.Time, cfg
 		d.Data = json.RawMessage(raw)
 	}
 
-	tmpl := templates
-	if name := matter["template"]; name != "" {
-		tmpl = make([]string, len(templates))
-		copy(tmpl, templates)
-		tmpl[0] = "./templates/" + strings.TrimSuffix(name, ".tmpl") + ".tmpl"
+	tmpl, err := resolveTemplates(templatesDir, matter["template"])
+	if err != nil {
+		return err
 	}
 
-	slog.Info("building page", "title", d.Pagematter.PageTitle, "template", tmpl[0])
+	slog.Info("building page", "title", d.Pagematter.PageTitle, "template", tmpl[len(tmpl)-1])
 	html, err := BuildTemplate(d, tmpl...)
 	if err != nil {
 		return err
@@ -228,13 +258,13 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func BuildPages(dir string, outpath string, cfg Config, templates ...string) error {
+func BuildPages(dir string, outpath string, cfg Config, templatesDir string) error {
 	files, err := GetFilesFromDirectory(dir)
 	if err != nil {
 		return err
 	}
 	for _, file := range files {
-		if err := BuildPage(file.Name(), dir, outpath, cfg, templates...); err != nil {
+		if err := BuildPage(file.Name(), dir, outpath, cfg, templatesDir); err != nil {
 			return err
 		}
 	}
@@ -243,7 +273,7 @@ func BuildPages(dir string, outpath string, cfg Config, templates ...string) err
 
 // BuildAll walks markdownDir recursively and builds every .md file it finds,
 // preserving the directory structure in outpath.
-func BuildAll(markdownDir string, outpath string, cfg Config, templates ...string) error {
+func BuildAll(markdownDir string, outpath string, cfg Config, templatesDir string) error {
 	markdownDir = filepath.Clean(markdownDir)
 	return filepath.Walk(markdownDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -258,7 +288,7 @@ func BuildAll(markdownDir string, outpath string, cfg Config, templates ...strin
 			return err
 		}
 		fileOutpath := filepath.Join(outpath, relDir) + string(filepath.Separator)
-		return BuildPage(filepath.Base(path), dir+string(filepath.Separator), fileOutpath, cfg, templates...)
+		return BuildPage(filepath.Base(path), dir+string(filepath.Separator), fileOutpath, cfg, templatesDir)
 	})
 }
 
