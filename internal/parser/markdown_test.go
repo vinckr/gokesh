@@ -123,10 +123,21 @@ func TestToHTML(t *testing.T) {
 			contains: []string{"<pre><code>", "func main() {}", "</code></pre>"},
 		},
 		{
-			name:   "fenced code block no inline processing",
-			input:  "```\n**not bold**\n```",
+			name:     "fenced code block no inline processing",
+			input:    "```\n**not bold**\n```",
 			contains: []string{"**not bold**"},
 			absent:   []string{"<strong>"},
+		},
+		{
+			name:     "fenced code block with language",
+			input:    "```go\nfunc main() {}\n```",
+			contains: []string{`<pre><code class="language-go">`, "func main() {}", "</code></pre>"},
+		},
+		{
+			name:     "fenced code block with language no class when empty",
+			input:    "```\nhello\n```",
+			contains: []string{"<pre><code>"},
+			absent:   []string{"class="},
 		},
 		// Table
 		{

@@ -74,7 +74,12 @@ func ToHTML(src []byte) []byte {
 			if !inFence {
 				flush()
 				inFence = true
-				out.WriteString("<pre><code>")
+				lang := strings.TrimSpace(line[3:])
+				if lang != "" {
+					out.WriteString(`<pre><code class="language-` + lang + `">`)
+				} else {
+					out.WriteString("<pre><code>")
+				}
 				continue
 			}
 			// closing fence

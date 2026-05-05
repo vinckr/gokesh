@@ -1,8 +1,74 @@
 package parser
 
 import (
+	"log/slog"
 	"strings"
+	"time"
 )
+
+// FrontmatterFields is the typed representation of a page's frontmatter.
+// It is populated by ParseTypedFrontmatter.
+type FrontmatterFields struct {
+	Title       string
+	Description string
+	Slug        string
+	Template    string
+	Data        string
+	Date        time.Time
+	Tags        []string
+	Draft       bool
+}
+
+// ParseTypedFrontmatter parses frontmatter into a typed struct plus the body.
+// It builds on ParseFrontmatter for delimiter handling and adds type coercion.
+func ParseTypedFrontmatter(content []byte) (FrontmatterFields, []byte) {
+	matter, body := ParseFrontmatter(content)
+	var f FrontmatterFields
+
+	f.Title = matter["title"]
+	f.Description = matter["description"]
+	f.Slug = matter["slug"]
+	f.Template = matter["template"]
+	f.Data = matter["data"]
+
+	if v := matter["draft"]; v == "true" {
+		f.Draft = true
+	}
+
+	if v := matter["date"]; v != "" {
+		t, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			slog.Warn("invalid date in frontmatter", "value", v)
+		} else {
+			f.Date = t
+		}
+	}
+
+	if v := matter["tags"]; v != "" {
+		f.Tags = parseTags(v)
+	}
+
+	return f, body
+}
+
+// parseTags parses "[go, web, ssr]" into []string{"go", "web", "ssr"}.
+func parseTags(s string) []string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "[")
+	s = strings.TrimSuffix(s, "]")
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	tags := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if tag := strings.TrimSpace(p); tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
+}
 
 // Parse extracts YAML frontmatter from markdown content.
 // Frontmatter is a block of key: value pairs between two --- delimiters at the

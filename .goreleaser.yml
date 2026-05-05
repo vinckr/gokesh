@@ -6,6 +6,8 @@ builds:
     binary: gokesh
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
 
 archives:
   - formats: [tar.gz]

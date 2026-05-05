@@ -12,7 +12,13 @@ import (
 // Config is reloaded from gokesh.toml on every rebuild so changes take effect
 // without restarting the process. Blocks until the process is killed.
 func Watch(outpath string, configPath string, templatesDir string) error {
-	watched := []string{"./markdown/", "./templates/", "./styles/", "./data/", "./gokesh.toml"}
+	return WatchWithCallback(outpath, configPath, templatesDir, nil)
+}
+
+// WatchWithCallback is like Watch but calls onRebuild (if non-nil) after each
+// successful build. Used by the serve command to trigger live reload.
+func WatchWithCallback(outpath string, configPath string, templatesDir string, onRebuild func()) error {
+	watched := []string{"./markdown/", "./templates/", "./styles/", "./static/", "./data/", "./gokesh.toml"}
 
 	slog.Info("watching for changes — press Ctrl+C to stop")
 
@@ -20,6 +26,8 @@ func Watch(outpath string, configPath string, templatesDir string) error {
 	lastBuild := time.Now()
 	if err := fullBuild(outpath, configPath, templatesDir); err != nil {
 		slog.Error("build failed", "error", err)
+	} else if onRebuild != nil {
+		onRebuild()
 	}
 
 	for {
@@ -29,6 +37,8 @@ func Watch(outpath string, configPath string, templatesDir string) error {
 			slog.Info("change detected, rebuilding")
 			if err := fullBuild(outpath, configPath, templatesDir); err != nil {
 				slog.Error("build failed", "error", err)
+			} else if onRebuild != nil {
+				onRebuild()
 			}
 		}
 	}
@@ -42,7 +52,14 @@ func fullBuild(outpath string, configPath string, templatesDir string) error {
 	if err := CopyStyles("./styles/", outpath); err != nil {
 		return err
 	}
-	if err := BuildAll("./markdown/", outpath, cfg, templatesDir); err != nil {
+	if err := CopyStatic("./static/", outpath); err != nil {
+		return err
+	}
+	if err := BuildAllIncremental("./markdown/", outpath, cfg, templatesDir); err != nil {
+		return err
+	}
+	pages := CollectPages("./markdown/", cfg.BaseURL)
+	if err := GenerateRSS(pages, outpath, cfg.SiteTitle, cfg.BaseURL); err != nil {
 		return err
 	}
 	return GenerateSitemap(outpath, cfg.BaseURL)

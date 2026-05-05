@@ -4,7 +4,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    {{- if .Pagematter.PageTitle}}
     <title>{{ .Pagematter.PageTitle}} · {{ .SiteTitle}}</title>
+    {{- else}}
+    <title>{{ .SiteTitle}}</title>
+    {{- end}}
+    {{- $desc := .Pagematter.Description}}{{if not $desc}}{{$desc = .Description}}{{end}}
+    {{- if $desc}}
+    <meta name="description" content="{{$desc}}">
+    <meta property="og:description" content="{{$desc}}">
+    {{- end}}
+    {{- if .Pagematter.PageTitle}}
+    <meta property="og:title" content="{{ .Pagematter.PageTitle}} · {{ .SiteTitle}}">
+    {{- else}}
+    <meta property="og:title" content="{{ .SiteTitle}}">
+    {{- end}}
+    {{- if and .BaseURL .Pagematter.Slug}}
+    <meta property="og:url" content="{{ .BaseURL}}/{{ .Pagematter.Slug}}/">
+    <link rel="canonical" href="{{ .BaseURL}}/{{ .Pagematter.Slug}}/">
+    {{- end}}
+    {{- if .BaseURL}}
+    <link rel="alternate" type="application/rss+xml" title="{{ .SiteTitle}}" href="{{ .BaseURL}}/feed.xml">
+    {{- end}}
     <link rel="stylesheet" href="/style.css">
 </head>
 

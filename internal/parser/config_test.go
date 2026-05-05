@@ -40,6 +40,11 @@ func TestParseConfig(t *testing.T) {
 				"description": "A blog",
 			},
 		},
+		{
+			name:  "output_dir and markdown_dir",
+			input: "output_dir = \"dist\"\nmarkdown_dir = \"content\"",
+			want:  map[string]string{"output_dir": "dist", "markdown_dir": "content"},
+		},
 	}
 
 	for _, tt := range tests {

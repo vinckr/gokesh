@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -22,6 +23,8 @@ type Config struct {
 	SiteTitle   string
 	BaseURL     string
 	Description string
+	MarkdownDir string // default: "markdown"
+	OutputDir   string // default: "public"
 }
 
 // LoadConfig reads and parses gokesh.toml. Returns an empty Config if the file does not exist.
@@ -34,12 +37,29 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, fmt.Errorf("reading config %q: %w", path, err)
 	}
 	fields := parser.ParseConfig(data)
-	return Config{
+	cfg := Config{
 		Author:      fields["author"],
 		SiteTitle:   fields["site_title"],
 		BaseURL:     fields["base_url"],
 		Description: fields["description"],
-	}, nil
+		MarkdownDir: fields["markdown_dir"],
+		OutputDir:   fields["output_dir"],
+	}
+	if cfg.MarkdownDir == "" {
+		cfg.MarkdownDir = "markdown"
+	}
+	if cfg.OutputDir == "" {
+		cfg.OutputDir = "public"
+	}
+	return cfg, nil
+}
+
+// PageSummary holds the metadata of one page, used to populate .Pages in templates.
+type PageSummary struct {
+	Title string
+	URL   string
+	Date  time.Time
+	Tags  []string
 }
 
 // pageData holds the full context passed to page templates.
@@ -51,8 +71,14 @@ type pageData struct {
 	Year        string
 	Author      string
 	Data        json.RawMessage
+	Pages       []PageSummary
 	Pagematter  struct {
-		PageTitle string
+		PageTitle   string
+		Description string
+		Date        time.Time
+		Tags        []string
+		Slug        string
+		Draft       bool
 	}
 }
 
@@ -98,9 +124,56 @@ func items(v json.RawMessage) []map[string]any {
 	return result
 }
 
+// dateFormat formats a time.Time using the given Go layout string.
+// Returns "" for a zero time.
+func dateFormat(t time.Time, layout string) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format(layout)
+}
+
+// sortBy returns a copy of pages sorted by "date" (newest-first) or "title" (A-Z).
+func sortBy(pages []PageSummary, field string) []PageSummary {
+	out := make([]PageSummary, len(pages))
+	copy(out, pages)
+	sort.Slice(out, func(i, j int) bool {
+		switch field {
+		case "title":
+			return out[i].Title < out[j].Title
+		default: // "date"
+			if out[i].Date.IsZero() != out[j].Date.IsZero() {
+				return !out[i].Date.IsZero()
+			}
+			return out[i].Date.After(out[j].Date)
+		}
+	})
+	return out
+}
+
+// filterByTag returns pages that include the given tag.
+func filterByTag(pages []PageSummary, tag string) []PageSummary {
+	var out []PageSummary
+	for _, p := range pages {
+		for _, t := range p.Tags {
+			if t == tag {
+				out = append(out, p)
+				break
+			}
+		}
+	}
+	return out
+}
+
 // BuildTemplate renders the named "Page" template with data and returns HTML.
 func BuildTemplate(d pageData, templates ...string) (string, error) {
-	funcMap := template.FuncMap{"jsonify": jsonify, "items": items}
+	funcMap := template.FuncMap{
+		"jsonify":       jsonify,
+		"items":         items,
+		"dateFormat":    dateFormat,
+		"sortBy":        sortBy,
+		"filterByTag":   filterByTag,
+	}
 	t, err := template.New("").Funcs(funcMap).ParseFiles(templates...)
 	if err != nil {
 		return "", fmt.Errorf("parsing templates: %w", err)
@@ -170,15 +243,28 @@ func resolveTemplates(templatesDir, entryName string) ([]string, error) {
 }
 
 func BuildPage(fileName string, dir string, outpath string, cfg Config, templatesDir string) error {
-	return BuildPageAt(fileName, dir, outpath, time.Now(), cfg, templatesDir)
+	pages := CollectPages("./markdown/", cfg.BaseURL)
+	return buildPageAt(fileName, dir, outpath, time.Now(), cfg, templatesDir, pages)
 }
 
 func BuildPageAt(fileName string, dir string, outpath string, now time.Time, cfg Config, templatesDir string) error {
+	return buildPageAt(fileName, dir, outpath, now, cfg, templatesDir, nil)
+}
+
+func buildPageAt(fileName string, dir string, outpath string, now time.Time, cfg Config, templatesDir string, pages []PageSummary) error {
 	md, err := ReadMarkdownFileFromDirectory(dir, fileName)
 	if err != nil {
 		return err
 	}
-	body, matter := SplitBodyAndFrontmatter(md)
+	fm, body := parser.ParseTypedFrontmatter(md)
+
+	if fm.Draft {
+		slog.Info("skipping draft", "file", fileName)
+		return nil
+	}
+	if fm.Title == "" {
+		slog.Warn("page has no title", "file", fileName)
+	}
 
 	var d pageData
 	d.Body = string(parser.ToHTML(body))
@@ -187,20 +273,26 @@ func BuildPageAt(fileName string, dir string, outpath string, now time.Time, cfg
 	d.BaseURL = cfg.BaseURL
 	d.Description = cfg.Description
 	d.Year = now.Format("2006")
-	d.Pagematter.PageTitle = matter["title"]
+	d.Pages = pages
+	d.Pagematter.PageTitle = fm.Title
+	d.Pagematter.Description = fm.Description
+	d.Pagematter.Date = fm.Date
+	d.Pagematter.Tags = fm.Tags
+	d.Pagematter.Slug = fm.Slug
+	d.Pagematter.Draft = fm.Draft
 
-	if dataFile := matter["data"]; dataFile != "" {
-		raw, err := os.ReadFile("./data/" + dataFile)
+	if fm.Data != "" {
+		raw, err := os.ReadFile("./data/" + fm.Data)
 		if err != nil {
-			return fmt.Errorf("reading data file %s: %w", dataFile, err)
+			return fmt.Errorf("reading data file %s: %w", fm.Data, err)
 		}
 		if !json.Valid(raw) {
-			return fmt.Errorf("invalid JSON in data file %s", dataFile)
+			return fmt.Errorf("invalid JSON in data file %s", fm.Data)
 		}
 		d.Data = json.RawMessage(raw)
 	}
 
-	tmpl, err := resolveTemplates(templatesDir, matter["template"])
+	tmpl, err := resolveTemplates(templatesDir, fm.Template)
 	if err != nil {
 		return err
 	}
@@ -211,6 +303,35 @@ func BuildPageAt(fileName string, dir string, outpath string, now time.Time, cfg
 		return err
 	}
 	return WriteHTMLFile(fileName, outpath, html)
+}
+
+// CopyStatic recursively copies all files from staticDir into outpath,
+// preserving subdirectory structure. Silently succeeds if staticDir is missing.
+func CopyStatic(staticDir string, outpath string) error {
+	if _, err := os.Stat(staticDir); os.IsNotExist(err) {
+		return nil
+	}
+	if err := os.MkdirAll(outpath, 0755); err != nil {
+		return fmt.Errorf("creating output directory %s: %w", outpath, err)
+	}
+	return filepath.Walk(staticDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, relErr := filepath.Rel(staticDir, path)
+		if relErr != nil {
+			return relErr
+		}
+		dst := filepath.Join(outpath, rel)
+		if info.IsDir() {
+			return os.MkdirAll(dst, 0755)
+		}
+		if copyErr := copyFile(path, dst); copyErr != nil {
+			return copyErr
+		}
+		slog.Info("static file copied", "src", path, "dst", dst)
+		return nil
+	})
 }
 
 // CopyStyles copies all files from stylesDir into outpath.
@@ -274,9 +395,89 @@ func BuildPages(dir string, outpath string, cfg Config, templatesDir string) err
 	return nil
 }
 
+// shouldRebuild returns true if srcPath is newer than outPath, or outPath doesn't exist.
+func shouldRebuild(srcPath, outPath string) bool {
+	outInfo, err := os.Stat(outPath)
+	if err != nil {
+		return true // output missing
+	}
+	srcInfo, err := os.Stat(srcPath)
+	if err != nil {
+		return true
+	}
+	return srcInfo.ModTime().After(outInfo.ModTime())
+}
+
+// CollectPages walks markdownDir and returns a PageSummary for every non-draft .md file.
+// Pages with a Date are sorted newest-first; undated pages appear at the end.
+func CollectPages(markdownDir string, baseURL string) []PageSummary {
+	markdownDir = filepath.Clean(markdownDir)
+	var pages []PageSummary
+	_ = filepath.Walk(markdownDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		fm, _ := parser.ParseTypedFrontmatter(raw)
+		if fm.Draft {
+			return nil
+		}
+		rel, err := filepath.Rel(markdownDir, path)
+		if err != nil {
+			return nil
+		}
+		url := pageURL(rel, baseURL)
+		pages = append(pages, PageSummary{
+			Title: fm.Title,
+			URL:   url,
+			Date:  fm.Date,
+			Tags:  fm.Tags,
+		})
+		return nil
+	})
+	// sort: dated pages newest-first, undated pages last
+	sort.Slice(pages, func(i, j int) bool {
+		if pages[i].Date.IsZero() != pages[j].Date.IsZero() {
+			return !pages[i].Date.IsZero()
+		}
+		return pages[i].Date.After(pages[j].Date)
+	})
+	return pages
+}
+
+// pageURL converts a relative markdown path to a clean URL string.
+func pageURL(rel, baseURL string) string {
+	base := strings.TrimSuffix(rel, ".md")
+	base = filepath.ToSlash(base)
+	if base == "index" {
+		if baseURL != "" {
+			return strings.TrimRight(baseURL, "/") + "/"
+		}
+		return "/"
+	}
+	if baseURL != "" {
+		return strings.TrimRight(baseURL, "/") + "/" + base + "/"
+	}
+	return "/" + base + "/"
+}
+
 // BuildAll walks markdownDir recursively and builds every .md file it finds,
 // preserving the directory structure in outpath.
+// A first pass collects all page metadata so templates can access .Pages.
 func BuildAll(markdownDir string, outpath string, cfg Config, templatesDir string) error {
+	return buildAllWith(markdownDir, outpath, cfg, templatesDir, false)
+}
+
+// BuildAllIncremental is like BuildAll but skips pages whose output is newer than their source.
+func BuildAllIncremental(markdownDir string, outpath string, cfg Config, templatesDir string) error {
+	return buildAllWith(markdownDir, outpath, cfg, templatesDir, true)
+}
+
+func buildAllWith(markdownDir string, outpath string, cfg Config, templatesDir string, incremental bool) error {
+	pages := CollectPages(markdownDir, cfg.BaseURL)
 	markdownDir = filepath.Clean(markdownDir)
 	return filepath.Walk(markdownDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -291,7 +492,19 @@ func BuildAll(markdownDir string, outpath string, cfg Config, templatesDir strin
 			return err
 		}
 		fileOutpath := filepath.Join(outpath, relDir) + string(filepath.Separator)
-		return BuildPage(filepath.Base(path), dir+string(filepath.Separator), fileOutpath, cfg, templatesDir)
+		if incremental {
+			base := strings.TrimSuffix(filepath.Base(path), ".md")
+			var outFile string
+			if base == "index" {
+				outFile = filepath.Join(fileOutpath, "index.html")
+			} else {
+				outFile = filepath.Join(fileOutpath, base, "index.html")
+			}
+			if !shouldRebuild(path, outFile) {
+				return nil
+			}
+		}
+		return buildPageAt(filepath.Base(path), dir+string(filepath.Separator), fileOutpath, time.Now(), cfg, templatesDir, pages)
 	})
 }
 

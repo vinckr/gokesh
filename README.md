@@ -20,10 +20,9 @@ myblog/
 │   ├── index.md
 │   └── blog/
 │       └── post.md
-├── templates/       # copy from gokesh repo
+├── templates/       # Go templates (created by gokesh init)
 ├── styles/          # optional CSS
-├── data/            # optional JSON data files
-└── .env
+└── data/            # optional JSON data files
 ```
 
 **2. Configure `gokesh.toml`:**
@@ -62,7 +61,7 @@ gokesh dev     # serves public/ at http://localhost:8000
 | -------------------------- | ------------------------------------------------- |
 | `gokesh init`              | Copy example templates, styles, and README into working dir |
 | `gokesh build`             | Build all `.md` files in `markdown/` recursively  |
-| `gokesh build page <name>` | Build `markdown/<name>.md` → `public/<name>.html` |
+| `gokesh build page <name>` | Build `markdown/<name>.md` → `public/<name>/index.html` |
 | `gokesh build dir <name>`  | Build all `.md` files in `markdown/<name>/`       |
 | `gokesh watch`             | Watch for changes and rebuild automatically       |
 | `gokesh dev`               | Serve `public/` at http://localhost:8000          |
