@@ -62,6 +62,40 @@ func TestBuildTemplate(t *testing.T) {
 	}
 }
 
+func TestBuildPagesSkipsNonMarkdown(t *testing.T) {
+	t.Parallel()
+
+	mdDir := t.TempDir()
+	outDir := t.TempDir()
+	tmplDir := t.TempDir()
+
+	// valid markdown file
+	writeFile(t, filepath.Join(mdDir, "post.md"), "---\ntitle: \"Post\"\n---\nHello")
+	// non-markdown files that must be silently skipped
+	writeFile(t, filepath.Join(mdDir, "style.css"), "body{}")
+	writeFile(t, filepath.Join(mdDir, "data.json"), `{"k":"v"}`)
+
+	pageTmpl := `{{define "Page"}}{{.Body}}{{end}}`
+	writeFile(t, filepath.Join(tmplDir, "page.tmpl"), pageTmpl)
+
+	cfg := Config{SiteTitle: "Test"}
+	if err := BuildPages(mdDir+string(filepath.Separator), outDir+string(filepath.Separator), cfg, tmplDir+string(filepath.Separator)); err != nil {
+		t.Fatalf("BuildPages: %v", err)
+	}
+
+	// only post/index.html should exist; css and json must not produce output
+	if _, err := os.ReadFile(filepath.Join(outDir, "post", "index.html")); err != nil {
+		t.Errorf("expected post/index.html to exist: %v", err)
+	}
+	// non-.md files must be skipped — no output directory should be created for them
+	if _, err := os.ReadFile(filepath.Join(outDir, "style.css", "index.html")); err == nil {
+		t.Error("style.css should not produce output")
+	}
+	if _, err := os.ReadFile(filepath.Join(outDir, "data.json", "index.html")); err == nil {
+		t.Error("data.json should not produce output")
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

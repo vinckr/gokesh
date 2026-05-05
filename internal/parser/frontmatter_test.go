@@ -64,6 +64,18 @@ func TestParseFrontmatter(t *testing.T) {
 			wantMatter: map[string]string{"pagetitle": "Test"},
 			wantBody:   "line one\nline two\nline three",
 		},
+		{
+			name:  "value containing colon",
+			input: "---\ntitle: \"Go: A Tour\"\n---\nbody",
+			wantMatter: map[string]string{"title": "Go: A Tour"},
+			wantBody:   "body",
+		},
+		{
+			name:  "unquoted value containing colon",
+			input: "---\nbase_url: https://example.com\n---\nbody",
+			wantMatter: map[string]string{"base_url": "https://example.com"},
+			wantBody:   "body",
+		},
 	}
 
 	for _, tt := range tests {

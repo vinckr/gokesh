@@ -264,6 +264,9 @@ func BuildPages(dir string, outpath string, cfg Config, templatesDir string) err
 		return err
 	}
 	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".md") {
+			continue
+		}
 		if err := BuildPage(file.Name(), dir, outpath, cfg, templatesDir); err != nil {
 			return err
 		}

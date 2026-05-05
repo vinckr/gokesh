@@ -17,23 +17,30 @@ func runInit() error {
 	if err := setupConfig(); err != nil {
 		return err
 	}
-	if err := copyEmbedDir("templates", "templates-examples", true); err != nil {
+	// Copy templates only to templates/ (no -examples copy)
+	if err := copyEmbedDir("templates", "templates"); err != nil {
 		return err
 	}
-	if err := setupCSS(); err != nil {
-		return err
-	}
-	if err := copyEmbedDir("styles", "styles-examples", true); err != nil {
-		return err
-	}
-	readme, err := gokesh.FS.ReadFile("README.md")
+	useTailwind, err := setupCSS()
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile("README.md", readme, 0644); err != nil {
+	if err := copyEmbedDir("styles", "styles"); err != nil {
 		return err
 	}
-	slog.Info("wrote README.md")
+	// Only write README if one doesn't already exist
+	if _, err := os.Stat("README.md"); os.IsNotExist(err) {
+		readme, err := gokesh.FS.ReadFile("README.md")
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile("README.md", readme, 0644); err != nil {
+			return err
+		}
+		slog.Info("wrote README.md")
+	} else {
+		slog.Info("README.md already exists, skipping")
+	}
 
 	cfg, err := build.LoadConfig("./gokesh.toml")
 	if err != nil {
@@ -42,7 +49,7 @@ func runInit() error {
 	if err := os.MkdirAll("./public", 0755); err != nil {
 		return err
 	}
-	if err := writeHeaders("./public/_headers"); err != nil {
+	if err := writeHeaders("./public/_headers", useTailwind); err != nil {
 		return err
 	}
 	if err := writeWebManifest("./public/site.webmanifest", cfg.SiteTitle); err != nil {
@@ -51,32 +58,35 @@ func runInit() error {
 	return nil
 }
 
-func setupCSS() error {
+// setupCSS prompts the user about Tailwind CSS and injects the CDN tag if chosen.
+// Returns true if Tailwind CDN was added (so the CSP can be adjusted).
+func setupCSS() (bool, error) {
 	useTailwind := promptYN("Use Tailwind CSS?")
 	if !useTailwind {
-		return nil
+		return false, nil
 	}
+
+	fmt.Println("  Note: @tailwindcss/browser is for development only. Replace with a build step before deploying to production.")
 
 	const headerPath = "./templates/header.tmpl"
 	data, err := os.ReadFile(headerPath)
 	if err != nil {
-		return fmt.Errorf("reading %s: %w", headerPath, err)
+		return false, fmt.Errorf("reading %s: %w", headerPath, err)
 	}
 
 	const cdnTag = `    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>`
 	if strings.Contains(string(data), "tailwindcss/browser") {
 		slog.Info("Tailwind CDN already present in header.tmpl, skipping")
-		return nil
+		return true, nil
 	}
 
 	updated := strings.Replace(string(data), "</head>", cdnTag+"\n</head>", 1)
 	if err := os.WriteFile(headerPath, []byte(updated), 0644); err != nil {
-		return fmt.Errorf("writing %s: %w", headerPath, err)
+		return false, fmt.Errorf("writing %s: %w", headerPath, err)
 	}
 	slog.Info("added Tailwind CDN script to templates/header.tmpl")
-	return nil
+	return true, nil
 }
-
 
 func promptYN(label string) bool {
 	fmt.Printf("  %s [y/N]: ", label)
@@ -123,15 +133,21 @@ func prompt(label, defaultVal string) string {
 	return val
 }
 
-func writeHeaders(path string) error {
-	const headers = `/*
+// writeHeaders writes a _headers file for Netlify/Cloudflare Pages.
+// If withTailwind is true, the CSP is relaxed to allow the unpkg.com CDN script.
+func writeHeaders(path string, withTailwind bool) error {
+	scriptSrc := "'self'"
+	if withTailwind {
+		scriptSrc = "'self' https://unpkg.com"
+	}
+	headers := fmt.Sprintf(`/*
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   X-XSS-Protection: 1; mode=block
   Referrer-Policy: strict-origin-when-cross-origin
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'
+  Content-Security-Policy: default-src 'self'; script-src %s; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'
   Permissions-Policy: accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=()
-`
+`, scriptSrc)
 	if err := os.WriteFile(path, []byte(headers), 0644); err != nil {
 		return fmt.Errorf("writing _headers: %w", err)
 	}
@@ -146,11 +162,7 @@ func writeWebManifest(path, siteTitle string) error {
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#000000",
-  "icons": [
-    { "src": "/img/icon-192.png", "type": "image/png", "sizes": "192x192" },
-    { "src": "/img/icon-512.png", "type": "image/png", "sizes": "512x512" }
-  ]
+  "theme_color": "#000000"
 }
 `, siteTitle, siteTitle)
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -161,20 +173,8 @@ func writeWebManifest(path, siteTitle string) error {
 }
 
 // copyEmbedDir copies src from the embedded FS into dst on disk.
-// If initLive is true and the live dir does not exist, it is also
-// written there so the project works out of the box.
-func copyEmbedDir(src, dst string, initLive bool) error {
-	if err := copyFS(src, dst); err != nil {
-		return err
-	}
-	if initLive {
-		if _, err := os.Stat(src); os.IsNotExist(err) {
-			if err := copyFS(src, src); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+func copyEmbedDir(src, dst string) error {
+	return copyFS(src, dst)
 }
 
 func copyFS(src, dst string) error {

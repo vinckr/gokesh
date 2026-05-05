@@ -2,6 +2,7 @@ package parser
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -302,7 +303,6 @@ func escapeHTML(s string) string {
 	return s
 }
 
-// itoa converts a small integer to its string representation without fmt.
 func itoa(n int) string {
-	return string(rune('0' + n))
+	return strconv.Itoa(n)
 }

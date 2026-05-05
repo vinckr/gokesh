@@ -82,7 +82,7 @@ func main() {
 		}
 
 	case "watch":
-		if err := build.Watch("./public/", cfg, templatesDir); err != nil {
+		if err := build.Watch("./public/", "./gokesh.toml", templatesDir); err != nil {
 			slog.Error("watch failed", "error", err)
 			os.Exit(1)
 		}
