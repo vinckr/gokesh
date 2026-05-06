@@ -27,16 +27,19 @@ type Config struct {
 	OutputDir   string // default: "public"
 }
 
-// LoadConfig reads and parses gokesh.toml. Returns an empty Config if the file does not exist.
+// LoadConfig reads and parses gokesh.toml. Returns defaults if the file does not exist.
 func LoadConfig(path string) (Config, error) {
+	var fields map[string]string
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Config{}, nil
+			fields = map[string]string{}
+		} else {
+			return Config{}, fmt.Errorf("reading config %q: %w", path, err)
 		}
-		return Config{}, fmt.Errorf("reading config %q: %w", path, err)
+	} else {
+		fields = parser.ParseConfig(data)
 	}
-	fields := parser.ParseConfig(data)
 	cfg := Config{
 		Author:      fields["author"],
 		SiteTitle:   fields["site_title"],

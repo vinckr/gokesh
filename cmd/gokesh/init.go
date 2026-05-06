@@ -42,6 +42,9 @@ func runInit() error {
 		slog.Info("README.md already exists, skipping")
 	}
 
+	if err := scaffoldMarkdown(); err != nil {
+		return err
+	}
 	cfg, err := build.LoadConfig("./gokesh.toml")
 	if err != nil {
 		return err
@@ -169,6 +172,32 @@ func writeWebManifest(path, siteTitle string) error {
 		return fmt.Errorf("writing site.webmanifest: %w", err)
 	}
 	slog.Info("wrote", "file", path)
+	return nil
+}
+
+// scaffoldMarkdown creates markdown/ and a starter index.md if they don't exist.
+func scaffoldMarkdown() error {
+	if err := os.MkdirAll("./markdown", 0755); err != nil {
+		return err
+	}
+	indexPath := "./markdown/index.md"
+	if _, err := os.Stat(indexPath); err == nil {
+		slog.Info("markdown/index.md already exists, skipping")
+		return nil
+	}
+	content := `---
+title: "Home"
+description: "Welcome to my site"
+---
+
+# Welcome
+
+Edit this file at **markdown/index.md** to get started.
+`
+	if err := os.WriteFile(indexPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("writing markdown/index.md: %w", err)
+	}
+	slog.Info("wrote markdown/index.md")
 	return nil
 }
 
